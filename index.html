@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>FILE TOOLS</title>
+        <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+        <link rel="stylesheet" href="style.css">
+    </head>
+    <body>
+        <div class="container">
+            <nav class="sidebar">
+                <ul>
+                    <li>
+                        <a href="#" id="navCompare" onclick="showSection('compare')">So sánh dữ liệu 2 file</a>
+                    </li>
+                    <li>
+                        <a href="#" id="navSplit" onclick="showSection('split')">Đọc và tách file</a>
+                    </li>
+                    <li>
+                        <a href="#" id="navSplitDate" onclick="showSection('splitDate')">Tách file KTĐK</a>
+                    </li>
+                </ul>
+            </nav>
+            <main class="content">
+                <!-- Compare data section -->
+                <section id="compareSection">
+                    <div class="header">
+                        <h1>📊 So Sánh Dữ Liệu 2 File</h1>
+                        <div class="controls">
+                            <div class="control-group">
+                                <label for="compareFile1">File 1 (Ít dòng hơn):</label>
+                                <input
+                                    type="file"
+                                    id="compareFile1"
+                                    accept=".xlsx,.xls,.csv"
+                                    onchange="previewCompareFiles()"
+                                >
+                            </div>
+                            <div class="control-group">
+                                <label for="compareFile2">File 2 (Nhiều dòng hơn):</label>
+                                <input
+                                    type="file"
+                                    id="compareFile2"
+                                    accept=".xlsx,.xls,.csv"
+                                    onchange="previewCompareFiles()"
+                                >
+                            </div>
+                            <div class="control-group">
+                                <label for="columnName">Tên cột để so sánh:</label>
+                                <input type="text" id="columnName" placeholder="Ví dụ: SoKhung, VIN, ID...">
+                            </div>
+                            <div class="button-group">
+                                <button onclick="processFiles()">🔍 So sánh dữ liệu</button>
+                                <button
+                                    class="export-btn"
+                                    onclick="exportDifference()"
+                                    style="display: none;"
+                                    id="exportBtn"
+                                >⬇️ Xuất kết quả</button>
+                            </div>
+                        </div>
+                        <div id="statusCompare" class="status"></div>
+                        <div class="note">
+                            ✓ Chọn file sẽ tự động hiển thị nội dung (preview)
+                            <br>
+                            ✓ Hiển thị nội dung File 1 bên trái, File 2 bên phải
+                            <br>
+                            ✓ Tìm các dòng trong File 2 mà không có trong File 1
+                            <br>
+                            ✓ Các dòng lệch được tô màu đỏ trong kết quả
+                        </div>
+                    </div>
+                    <div id="result" class="statistics">
+                        <div class="stats-row">
+                            <div class="stat-item">
+                                <strong>File 1:</strong>
+                                <span id="statsFile1">-</span>
+                            </div>
+                            <div class="stat-item">
+                                <strong>File 2:</strong>
+                                <span id="statsFile2">-</span>
+                            </div>
+                            <div class="stat-item">
+                                <strong>Dữ liệu lệch:</strong>
+                                <span id="statsDiff">-</span>
+                            </div>
+                        </div>
+                        <div class="comparison-section">
+                            <div class="section-title">📋 Dữ liệu File 1</div>
+                            <div class="table-container" id="table1"></div>
+                        </div>
+                        <div class="comparison-section">
+                            <div class="section-title">📋 Dữ liệu File 2</div>
+                            <div class="table-container" id="table2"></div>
+                        </div>
+                        <div id="diffSection" class="comparison-section diff-section">
+                            <div class="section-title">⚠️ Dữ Liệu Lệch (Có trong File 2 nhưng không có trong File 1)</div>
+                            <div class="table-container" id="tableDiff"></div>
+                            <button class="export-btn" onclick="exportDifference()">⬇️ Xuất tất cả dữ liệu lệch ra Excel</button>
+                        </div>
+                    </div>
+                </section>
+                <!-- Split file section -->
+                <section id="splitSection" style="display:none;">
+                    <div class="header">
+                        <h1>📁 Đọc và Tách File</h1>
+                        <div class="controls">
+                            <div class="control-group">
+                                <label for="splitFile">Chọn file:</label>
+                                <input type="file" id="splitFile" accept=".xlsx,.xls,.csv">
+                            </div>
+                            <div class="control-group">
+                                <label for="rowsPerSheet">Số dòng mỗi sheet:</label>
+                                <input
+                                    type="number"
+                                    id="rowsPerSheet"
+                                    value="1000"
+                                    min="1"
+                                >
+                            </div>
+                            <div class="button-group">
+                                <button onclick="readSplitFile()">📖 Đọc file</button>
+                                <button onclick="splitFile2()">📤 Tách file</button>
+                            </div>
+                        </div>
+                        <div id="statusSplit" class="status"></div>
+                    </div>
+                    <div class="comparison-section">
+                        <div class="section-title">📋 Xem trước dữ liệu</div>
+                        <div class="table-container" id="tableSplit"></div>
+                    </div>
+                </section>
+                <!-- Split by date section -->
+                <section id="splitDateSection" style="display:none;">
+                    <div class="header">
+                        <h1>📅 Tách file KTĐK</h1>
+                    </div>
+                    <!-- Step 1: Read data -->
+                    <div class="comparison-section">
+                        <div class="section-title">📖 Bước 1: Đọc dữ liệu file</div>
+                        <div class="controls">
+                            <div class="control-group">
+                                <label for="splitDateFile">Chọn file KTĐK:</label>
+                                <input type="file" id="splitDateFile" accept=".xlsx,.xls,.csv">
+                            </div>
+                            <div class="button-group">
+                                <button onclick="readKTDKFile()">📖 Đọc dữ liệu</button>
+                            </div>
+                        </div>
+                        <div id="statusKTDKRead" class="status"></div>
+                    </div>
+                    <!-- Step 1 cont: Display all data -->
+                    <div class="comparison-section" id="ktdkDataPreview" style="display:none;">
+                        <div class="section-title">📋 Dữ liệu file (Tất cả dòng)</div>
+                        <div class="table-container" id="tableKTDKFull"></div>
+                    </div>
+                    <!-- Step 2: Select dates and split - TYPE A (Basic) -->
+                    <div class="comparison-section" id="ktdkTypeA_SelectionStep" style="display:none;">
+                        <div class="section-title">📅 a) Tách theo ngày (Cơ bản)</div>
+                        <div class="controls">
+                            <div class="control-group">
+                                <label for="kdkDateColumn">Tên cột ngày:</label>
+                                <input type="text" id="kdkDateColumn" placeholder="ví dụ: RemindDate">
+                            </div>
+                            <div class="button-group">
+                                <button onclick="selectDatesToSplitKTDK()">📅 Tải danh sách ngày</button>
+                            </div>
+                        </div>
+                        <div id="statusKTDKSelect" class="status"></div>
+                    </div>
+                    <!-- Days list with checkboxes - TYPE A -->
+                    <div class="comparison-section" id="ktdkTypeA_DatesContainer" style="display:none;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                            <div class="section-title" style="margin:0;">📅 Chọn ngày cần tách</div>
+                            <label style="cursor:pointer;">
+                                <input type="checkbox" id="kdkDateSelectAll">
+                                Chọn tất cả
+                            </label>
+                        </div>
+                        <div id="kdkDatesList" style="font-size: 14px;"></div>
+                        <div style="margin-top: 15px;">
+                            <button onclick="doSplitKTDK()" style="width: 100%;">📤 Tách file theo ngày đã chọn</button>
+                        </div>
+                    </div>
+                    <!-- Step 3: Show split results - TYPE A -->
+                    <div class="comparison-section" id="ktdkTypeA_ResultsContainer" style="display:none;">
+                        <div class="section-title">💾 Bước 3: Kết quả tách (a)</div>
+                        <div id="kdkFilesList" style="font-size: 14px; line-height: 1.8;"></div>
+                    </div>
+                    <!-- TYPE B: Import Standard Format -->
+                    <div class="comparison-section" id="ktdkTypeB_SelectionStep" style="display:none;">
+                        <div class="section-title">📋 b) Tách theo mẫu chuẩn KTDK</div>
+                        <div class="controls">
+                            <div class="control-group">
+                                <label for="kdkTemplateFile">Chọn file mẫu:</label>
+                                <input type="file" id="kdkTemplateFile" accept=".xlsx,.xls,.csv">
+                            </div>
+                            <div class="button-group">
+                                <button onclick="readTemplateFile()">📖 Đọc file mẫu</button>
+                            </div>
+                        </div>
+                        <div id="statusKTDKTemplate" class="status"></div>
+                        <div class="control-group" id="kdkTemplateInfo" style="display:none; margin-top:15px; padding:10px; background:#f0f0f0; border-radius:5px;">
+                            <strong>Cấu trúc mẫu:</strong>
+                            <div id="kdkTemplateColumns" style="margin-top:5px; font-size:12px;"></div>
+                        </div>
+                        <div class="controls" id="kdkTypeB_SettingsAfterTemplate" style="display:none; margin-top:15px;">
+                            <div class="control-group">
+                                <label for="kdkDateColumnB">Tên cột ngày:</label>
+                                <input type="text" id="kdkDateColumnB" placeholder="ví dụ: RemindDate">
+                            </div>
+                            <div class="control-group">
+                                <label for="kdkMonthYearB">Tháng-Năm (ví dụ: T03_2026):</label>
+                                <input type="text" id="kdkMonthYearB" placeholder="ví dụ: T03_2026">
+                            </div>
+                            <div class="button-group">
+                                <button onclick="selectDatesToSplitKTDKTypeB()">📅 Tải danh sách ngày</button>
+                            </div>
+                        </div>
+                        <div id="statusKTDKSelectB" class="status"></div>
+                    </div>
+                    <!-- Days list with pair selection - TYPE B -->
+                    <div class="comparison-section" id="ktdkTypeB_DatesContainer" style="display:none;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                            <div class="section-title" style="margin:0;">📅 Chọn cặp ngày cần tách</div>
+                            <label style="cursor:pointer;">
+                                <input type="checkbox" id="kdkDateSelectAllB">
+                                Chọn tất cả
+                            </label>
+                        </div>
+                        <div id="kdkDatesListB" style="font-size: 14px;"></div>
+                        <div style="margin-top: 15px;">
+                            <button onclick="doSplitKTDKTypeB()" style="width: 100%;">📤 Tách file theo mẫu chuẩn</button>
+                        </div>
+                    </div>
+                    <!-- Step 3: Show split results - TYPE B -->
+                    <div class="comparison-section" id="ktdkTypeB_ResultsContainer" style="display:none;">
+                        <div class="section-title">💾 Bước 3: Kết quả tách (b)</div>
+                        <div id="kdkFilesListB" style="font-size: 14px; line-height: 1.8;"></div>
+                    </div>
+                </section>
+            </main>
+        </div>
+        <script src="app.js"></script>
+    </body>
+</html>
