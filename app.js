@@ -1,5 +1,6 @@
 // Read Excel file
-async function readExcel(file) {
+// Read Excel file. If applyDefaults is false then ServiceType values are left as-is.
+async function readExcel(file, applyDefaults = true) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = (e) => {
@@ -21,13 +22,21 @@ async function readExcel(file) {
                     });
                 }
 
-                // ensure ServiceType column exists with default 'KTDK'
-                // if the user provides their own value it should not be overwritten
-                json.forEach(row => {
-                    if (row['ServiceType'] == null || String(row['ServiceType']).trim() === '') {
-                        row['ServiceType'] = 'KTDK';
+                if (applyDefaults) {
+                    // ensure ServiceType column exists with a sensible default
+                    // default comes from the ServiceType input field if available
+                    // (used by split UI), otherwise fall back to 'KTDK'.
+                    let defaultServiceType = 'KTDK';
+                    const svcEl = document.getElementById('serviceType');
+                    if (svcEl && svcEl.value && svcEl.value.trim() !== '') {
+                        defaultServiceType = svcEl.value.trim();
                     }
-                });
+                    json.forEach(row => {
+                        if (row['ServiceType'] == null || String(row['ServiceType']).trim() === '') {
+                            row['ServiceType'] = defaultServiceType;
+                        }
+                    });
+                }
             }
 
             resolve(json);
@@ -122,6 +131,62 @@ function displayTable(containerId, data, columns, highlightValues = null) {
     container.innerHTML = html;
 }
 
+// Return a cleaned list of columns for display: remove empty/placeholder
+// headers and redundant CUSTOMER_NAME when there's an equivalent FullName.
+function getDisplayColumns(data) {
+    if (!data || data.length === 0) return [];
+    const rawCols = Object.keys(data[0]);
+
+    // remove obvious placeholder headers like '__EMPTY' or empty strings
+    let cols = rawCols.filter(c => {
+        if (!c) return false;
+        const lc = String(c).toLowerCase().trim();
+        if (lc === '__empty' || lc === 'empty' || lc === '') return false;
+        return true;
+    });
+
+    // If both a FullName-like column and CUSTOMER_NAME exist and they
+    // contain identical values (for first non-empty row), drop CUSTOMER_NAME
+    const findCol = names => {
+        const lcNames = names.map(n => n.toLowerCase());
+        return cols.find(h => lcNames.includes(h.toLowerCase()));
+    };
+
+    const fullNameCol = findCol(['FullName', 'FULLNAME', 'CustomerName', 'CUSTOMER_NAME', 'Customer_Name']);
+    const custNameCol = cols.find(h => h.toLowerCase() === 'customer_name');
+
+    if (fullNameCol && custNameCol && fullNameCol !== custNameCol) {
+        // find first non-empty values and compare
+        const firstRow = data.find(r => (r[fullNameCol] || r[custNameCol]));
+        if (firstRow) {
+            const a = String(firstRow[fullNameCol] || '').trim();
+            const b = String(firstRow[custNameCol] || '').trim();
+            if (a && b && a === b) {
+                cols = cols.filter(c => c !== custNameCol);
+            }
+        }
+    }
+
+    return cols;
+}
+
+// Compute reasonable column widths (wch) for a worksheet based on data rows
+function computeColWidths(rows, headers) {
+    if (!rows || rows.length === 0) return [];
+    const cols = headers && headers.length ? headers : Object.keys(rows[0] || {});
+    const widths = cols.map(col => {
+        let maxLen = String(col || '').length;
+        rows.forEach(r => {
+            const v = r[col] == null ? '' : String(r[col]);
+            if (v.length > maxLen) maxLen = v.length;
+        });
+        // add small padding, clamp to reasonable range
+        const w = Math.min(Math.max(maxLen + 2, 8), 60);
+        return { wch: w };
+    });
+    return widths;
+}
+
 // Preview compare files when they are selected (show contents without diff)
 async function previewCompareFiles() {
     const file1 = document.getElementById("compareFile1").files[0];
@@ -133,8 +198,8 @@ async function previewCompareFiles() {
 
     if (file1) {
         try {
-            data1 = await readExcel(file1);
-            const cols1 = data1.length ? Object.keys(data1[0]) : [];
+            data1 = await readExcel(file1, false);
+            const cols1 = data1.length ? getDisplayColumns(data1) : [];
             displayTable("table1", data1, cols1);
             document.getElementById("statsFile1").innerText = `File 1: ${data1.length} dòng`;
         } catch (e) {
@@ -145,8 +210,8 @@ async function previewCompareFiles() {
 
     if (file2) {
         try {
-            data2 = await readExcel(file2);
-            const cols2 = data2.length ? Object.keys(data2[0]) : [];
+            data2 = await readExcel(file2, false);
+            const cols2 = data2.length ? getDisplayColumns(data2) : [];
             displayTable("table2", data2, cols2);
             document.getElementById("statsFile2").innerText = `File 2: ${data2.length} dòng`;
         } catch (e) {
@@ -177,8 +242,8 @@ async function processFiles() {
     document.getElementById("statusCompare").innerText = "Đang xử lý...";
 
     try {
-        const data1 = await readExcel(file1);
-        const data2 = await readExcel(file2);
+        const data1 = await readExcel(file1, false);
+        const data2 = await readExcel(file2, false);
 
         if (data1.length === 0 || data2.length === 0) {
             alert("Một trong hai file không có dữ liệu!");
@@ -192,9 +257,9 @@ async function processFiles() {
             return;
         }
 
-        // Get columns from both files
-        const columns1 = Object.keys(data1[0]);
-        const columns2 = Object.keys(data2[0]);
+        // Get columns from both files (filtered for preview/display)
+        const columns1 = getDisplayColumns(data1);
+        const columns2 = getDisplayColumns(data2);
 
         // Get unique values from each file
         const file1Values = getUniqueValues(data1, columnName);
@@ -249,11 +314,11 @@ function exportDifference() {
     }
 
     const file2 = document.getElementById("compareFile2").files[0];
-    readExcel(file2).then(data2 => {
+    readExcel(file2, false).then(data2 => {
         const columnName = document.getElementById("columnName").value.trim();
         const file1 = document.getElementById("compareFile1").files[0];
 
-        readExcel(file1).then(data1 => {
+        readExcel(file1, false).then(data1 => {
             const file1Values = getUniqueValues(data1, columnName);
 
             const diffData = [];
@@ -266,6 +331,10 @@ function exportDifference() {
 
             if (diffData.length > 0) {
                 const ws = XLSX.utils.json_to_sheet(diffData);
+                try {
+                    const colWidths = computeColWidths(diffData, Object.keys(diffData[0] || {}));
+                    if (colWidths && colWidths.length) ws['!cols'] = colWidths;
+                } catch (e) { }
                 const wb = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(wb, ws, "DuLieuLech");
                 XLSX.writeFile(wb, "du_lieu_lech_file2.xlsx");
@@ -291,8 +360,16 @@ async function splitFileIntoSheets(file, rowsPerSheet = 1000) {
             return;
         }
 
+        // apply service type selection to all rows before splitting
+        const serviceType = document.getElementById('serviceType').value.trim() || 'KTDK';
+        data.forEach(row => {
+            if (row['ServiceType'] == null || String(row['ServiceType']).trim() === '') {
+                row['ServiceType'] = serviceType;
+            }
+        });
+
         // Display a preview (first 100 rows) so user sees the file
-        const cols = Object.keys(data[0]);
+        const cols = getDisplayColumns(data);
         const previewRows = data.slice(0, 100);
         displayTable('tableSplit', previewRows, cols);
         // preview only; no stats element
@@ -303,6 +380,13 @@ async function splitFileIntoSheets(file, rowsPerSheet = 1000) {
         for (let i = 0; i < data.length; i += rowsPerSheet) {
             const chunk = data.slice(i, i + rowsPerSheet);
             const ws = XLSX.utils.json_to_sheet(chunk);
+            // auto-fit columns for this chunk
+            try {
+                const colWidths = computeColWidths(chunk, Object.keys(chunk[0] || {}));
+                if (colWidths && colWidths.length) ws['!cols'] = colWidths;
+            } catch (e) {
+                // ignore width calc errors
+            }
             const start = i + 1;
             const end = Math.min(i + rowsPerSheet, data.length);
             // include number of rows in the sheet name
@@ -323,7 +407,7 @@ async function splitFileIntoSheets(file, rowsPerSheet = 1000) {
 }
 
 // read and preview file in split section without splitting
-async function readSplitFile() {
+async function readFile() {
     const file = document.getElementById('splitFile').files[0];
     if (!file) {
         alert('Vui lòng chọn file để đọc!');
@@ -331,13 +415,14 @@ async function readSplitFile() {
     }
     try {
         document.getElementById('statusSplit').innerText = 'Đang đọc file...';
-        const data = await readExcel(file);
+        const data = await readExcel(file, false); // do not auto‑fill ServiceType for preview
         if (!data || data.length === 0) {
             alert('File không có dữ liệu.');
             document.getElementById('statusSplit').innerText = '';
             return;
         }
-        const cols = Object.keys(data[0]);
+        // simply preview first 100 rows without modifying ServiceType values
+        const cols = getDisplayColumns(data);
         displayTable('tableSplit', data.slice(0, 100), cols); // show first 100 rows
         document.getElementById('statusSplit').innerText = `Đã đọc ${data.length} dòng`;
     } catch (err) {
@@ -454,6 +539,7 @@ function exportByDate() {
         const wb = XLSX.utils.book_new();
         const dateColName = window.dateColumnName;
         const data = window.splitDateData;
+        const serviceType = document.getElementById('serviceType').value.trim() || 'KTDK';
 
         // Process each selected date
         checkboxes.forEach((checkbox) => {
@@ -466,16 +552,21 @@ function exportByDate() {
                 // ensure service type default for each row
                 filteredRows.forEach(r => {
                     if (r['ServiceType'] == null || String(r['ServiceType']).trim() === '') {
-                        r['ServiceType'] = 'KTDK';
+                        r['ServiceType'] = serviceType;
                     }
                 });
 
                 const ws = XLSX.utils.json_to_sheet(filteredRows);
+                // auto-fit columns for this date sheet
+                try {
+                    const colWidths = computeColWidths(filteredRows, Object.keys(filteredRows[0] || {}));
+                    if (colWidths && colWidths.length) ws['!cols'] = colWidths;
+                } catch (e) { }
                 XLSX.utils.book_append_sheet(wb, ws, selectedDate);
             }
         });
 
-        const fileName = `KTDK_${new Date().toISOString().split('T')[0]}.xlsx`;
+        const fileName = `${serviceType}_${new Date().toISOString().split('T')[0]}.xlsx`;
         XLSX.writeFile(wb, fileName);
 
         document.getElementById('statusSplitDate').innerText = `Đã xuất ${checkboxes.length} ngày vào: ${fileName}`;
@@ -485,11 +576,16 @@ function exportByDate() {
         document.getElementById('statusSplitDate').innerText = '';
     }
 }
-function splitFile2() {
+// helper called by split button
+function splitFile() {
     const file = document.getElementById('splitFile').files[0];
     const rows = parseInt(document.getElementById('rowsPerSheet').value, 10) || 1000;
     splitFileIntoSheets(file, rows);
 }
+
+// alias for backwards compatibility (not used by UI)
+// alias for possible legacy references (not used in UI)
+const readSplitFile = readFile;
 
 // ========== KTĐK Split Functionality ==========
 
@@ -529,8 +625,8 @@ async function readKTDKFile() {
         document.getElementById('ktdkTypeB_DatesContainer').style.display = 'none';
         document.getElementById('ktdkTypeB_ResultsContainer').style.display = 'none';
 
-        // Display all data
-        const cols = Object.keys(data[0]);
+        // Display all data (filtered for preview)
+        const cols = getDisplayColumns(data);
         displayTable('tableKTDKFull', data, cols);
 
         // Show next step UI
@@ -873,6 +969,12 @@ function doExportSelectedDays(setIndex) {
             // Add data rows starting at row 3 (index 2) WITHOUT generating an extra header row
             if (dateMap[displayDate] && dateMap[displayDate].length) {
                 XLSX.utils.sheet_add_json(ws, dateMap[displayDate], { origin: 'A3', skipHeader: true });
+                // compute and set column widths based on data and header names
+                try {
+                    const hdrs = headerRows && headerRows.length >= 2 ? headerRows[1] : Object.keys(dateMap[displayDate][0] || {});
+                    const colWidths = computeColWidths(dateMap[displayDate], hdrs);
+                    if (colWidths && colWidths.length) ws['!cols'] = colWidths;
+                } catch (e) { }
             }
             // compute last row index: headerRows.length (2) + data.length - 1 (0-based)
             const _len1 = (dateMap[displayDate] ? dateMap[displayDate].length : 0);
@@ -924,7 +1026,7 @@ function exportSplit(setIndex, consolidated) {
                     headerRows = window.ktdkHeaderRows.slice(0, 2);
                 } else {
                     // Create fallback headers
-                    const cols = Object.keys(dateMap[dt][0] || {});
+                    const cols = Object.keys(dateMap[displayDate][0] || {});
                     headerRows = [
                         cols, // Row 1: same as row 2 if no original headers
                         cols  // Row 2: column names
@@ -934,10 +1036,21 @@ function exportSplit(setIndex, consolidated) {
                 // Add header rows
                 XLSX.utils.sheet_add_aoa(ws, headerRows, { origin: 'A1' });
                 // Add data rows starting at row 3 (index 2) WITHOUT generating an extra header row
-                if (dateMap[dt] && dateMap[dt].length) {
-                    XLSX.utils.sheet_add_json(ws, dateMap[dt], { origin: 'A3', skipHeader: true });
+                if (dateMap[displayDate] && dateMap[displayDate].length) {
+                    XLSX.utils.sheet_add_json(ws, dateMap[displayDate], { origin: 'A3', skipHeader: true });
+                    // set column widths
+                    try {
+                        const hdrs = headerRows && headerRows.length >= 2 ? headerRows[1] : Object.keys(dateMap[displayDate][0] || {});
+                        const colWidths = computeColWidths(dateMap[displayDate], hdrs);
+                        if (colWidths && colWidths.length) ws['!cols'] = colWidths;
+                    } catch (e) { }
                 }
-                const _len2 = (dateMap[dt] ? dateMap[dt].length : 0);
+                // compute last row index: headerRows.length (2) + data.length - 1 (0-based)
+                const _len1 = (dateMap[displayDate] ? dateMap[displayDate].length : 0);
+                ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: (_len1 + headerRows.length - 1), c: 20 } });
+
+                XLSX.utils.book_append_sheet(wb, ws, sheetName);
+                XLSX.writeFile(wb, `${filePrefix}_${displayDate}.xlsx`);
                 ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: (_len2 + headerRows.length - 1), c: 20 } });
 
                 XLSX.utils.book_append_sheet(wb, ws, sheetName);

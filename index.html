@@ -12,13 +12,13 @@
             <nav class="sidebar">
                 <ul>
                     <li>
-                        <a href="#" id="navCompare" onclick="showSection('compare')">So sánh dữ liệu 2 file</a>
+                        <a href="#" id="navCompare" onclick="showSection('compare')">1. So sánh dữ liệu 2 file</a>
                     </li>
                     <li>
-                        <a href="#" id="navSplit" onclick="showSection('split')">Đọc và tách file</a>
+                        <a href="#" id="navSplit" onclick="showSection('split')">2. Đọc và tách file</a>
                     </li>
                     <li>
-                        <a href="#" id="navSplitDate" onclick="showSection('splitDate')">Tách file KTĐK</a>
+                        <a href="#" id="navSplitDate" onclick="showSection('splitDate')">3. Tách file KTĐK</a>
                     </li>
                 </ul>
             </nav>
@@ -105,10 +105,33 @@
                 <section id="splitSection" style="display:none;">
                     <div class="header">
                         <h1>📁 Đọc và Tách File</h1>
+                    </div>
+                    <!-- a) Đọc file -->
+                    <div class="comparison-section">
+                        <div class="section-title">📘 a) Đọc file</div>
                         <div class="controls">
                             <div class="control-group">
                                 <label for="splitFile">Chọn file:</label>
                                 <input type="file" id="splitFile" accept=".xlsx,.xls,.csv">
+                            </div>
+                            <div class="button-group">
+                                <button onclick="readFile()">📖 Đọc file</button>
+                            </div>
+                        </div>
+                        <div id="statusSplit" class="status"></div>
+                    </div>
+                    <!-- b) Tách file -->
+                    <div class="comparison-section">
+                        <div class="section-title">📤 b) Tách file</div>
+                        <div class="controls">
+                            <div class="control-group">
+                                <label for="serviceType">ServiceType:</label>
+                                <input
+                                    type="text"
+                                    id="serviceType"
+                                    placeholder="Ví dụ: KTDK"
+                                    value="KTDK"
+                                >
                             </div>
                             <div class="control-group">
                                 <label for="rowsPerSheet">Số dòng mỗi sheet:</label>
@@ -120,11 +143,14 @@
                                 >
                             </div>
                             <div class="button-group">
-                                <button onclick="readSplitFile()">📖 Đọc file</button>
-                                <button onclick="splitFile2()">📤 Tách file</button>
+                                <button onclick="splitFile()">📤 Tách file</button>
                             </div>
                         </div>
-                        <div id="statusSplit" class="status"></div>
+                        <div class="note" style="margin-top:5px; font-size:90%;">
+                            ✓ "Đọc file" chỉ hiển thị nội dung.
+                            <br>
+                            ✓ Nhập ServiceType & số dòng rồi nhấn "Tách file" để thực sự tách và gán giá trị.
+                        </div>
                     </div>
                     <div class="comparison-section">
                         <div class="section-title">📋 Xem trước dữ liệu</div>
