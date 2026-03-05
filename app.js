@@ -51,9 +51,11 @@ function showSection(section) {
     document.getElementById('compareSection').style.display = section === 'compare' ? 'block' : 'none';
     document.getElementById('splitSection').style.display = section === 'split' ? 'block' : 'none';
     document.getElementById('splitDateSection').style.display = section === 'splitDate' ? 'block' : 'none';
+    document.getElementById('randomUnitsSection').style.display = section === 'randomUnits' ? 'block' : 'none';
     document.getElementById('navCompare').classList.toggle('active', section === 'compare');
     document.getElementById('navSplit').classList.toggle('active', section === 'split');
     document.getElementById('navSplitDate').classList.toggle('active', section === 'splitDate');
+    document.getElementById('navRandomUnits').classList.toggle('active', section === 'randomUnits');
 }
 
 // Normalize value for comparison
@@ -1404,6 +1406,202 @@ async function doSplitKTDKTypeB() {
         console.error(err);
         alert('Lỗi khi xuất file: ' + err.message);
         document.getElementById('statusKTDKSelectB').innerText = '';
+    }
+}
+
+// ========== Random Units Feature ==========
+// Generate random units distributed evenly across rows
+function generateRandomUnits() {
+    const numUnitsInput = document.getElementById('numUnits');
+    const numRowsInput = document.getElementById('numRows');
+
+    if (!numUnitsInput.value || !numRowsInput.value) {
+        alert('Vui lòng nhập số lượng đơn vị và số dòng!');
+        return;
+    }
+
+    const numUnits = parseInt(numUnitsInput.value);
+    const numRows = parseInt(numRowsInput.value);
+
+    if (numUnits <= 0 || numRows <= 0) {
+        alert('Số lượng đơn vị và số dòng phải lớn hơn 0!');
+        return;
+    }
+
+    try {
+        document.getElementById('statusRandomUnits').innerText = 'Đang tạo dữ liệu...';
+
+        // Generate random data
+        const randomData = [];
+
+        // Create list of units with their assigned row indices
+        const unitsRowMapping = {};
+        for (let i = 0; i < numUnits; i++) {
+            unitsRowMapping[i] = [];
+        }
+
+        // Distribute rows evenly across units using round-robin method
+        for (let row = 0; row < numRows; row++) {
+            const unitIndex = row % numUnits;
+            unitsRowMapping[unitIndex].push(row + 1); // 1-based row number
+        }
+
+        // Create data rows
+        for (let row = 0; row < numRows; row++) {
+            const unitIndex = row % numUnits;
+            const unitCode = `H${String(unitIndex + 1).padStart(2, '0')}`;
+            randomData.push({
+                'STT': row + 1,
+                'Đơn vị': unitCode,
+                'Timestamp': new Date().toLocaleString('vi-VN')
+            });
+        }
+
+        // Store data globally for export
+        window.randomUnitsData = randomData;
+
+        // Display statistics
+        const rowsPerUnit = Math.floor(numRows / numUnits);
+        const remainder = numRows % numUnits;
+
+        document.getElementById('statTotalUnits').innerText = numUnits;
+        document.getElementById('statTotalRows').innerText = numRows;
+        document.getElementById('statRowsPerUnit').innerText = `${rowsPerUnit}${remainder > 0 ? ` (${remainder} đơn vị có thêm 1 dòng)` : ''}`;
+
+        // Display preview (first 20 rows)
+        displayRandomUnitsPreview(randomData.slice(0, 20));
+
+        // Show results section
+        document.getElementById('randomUnitsResults').style.display = 'block';
+
+        // Show summary by unit
+        let unitSummary = '<div style="margin-top: 15px; padding: 15px; background: #f5f5f5; border-radius: 5px;">';
+        unitSummary += '<strong>Phân bố dòng theo đơn vị:</strong><br>';
+        for (let i = 0; i < numUnits; i++) {
+            const unitCode = `H${String(i + 1).padStart(2, '0')}`;
+            const unitsInUnit = unitsRowMapping[i].length;
+            unitSummary += `<div style="margin: 5px 0; font-size: 12px;">${unitCode}: <strong>${unitsInUnit}</strong> dòng</div>`;
+            if ((i + 1) % 5 === 0) {
+                unitSummary += `<div style="margin: 5px 0; font-size: 11px; color: #999; text-align: right;">---</div>`;
+            }
+        }
+        unitSummary += '</div>';
+        document.getElementById('randomUnitsStats').innerHTML += unitSummary;
+
+        document.getElementById('statusRandomUnits').innerText = `✓ Tạo thành công ${numRows} dòng cho ${numUnits} đơn vị!`;
+
+    } catch (err) {
+        console.error(err);
+        alert('Lỗi khi tạo dữ liệu: ' + err.message);
+        document.getElementById('statusRandomUnits').innerText = '';
+    }
+}
+
+// Display preview table
+function displayRandomUnitsPreview(data) {
+    const container = document.getElementById('randomUnitsPreviewTable');
+    container.innerHTML = '';
+
+    if (!data || data.length === 0) {
+        container.innerHTML = '<p style="color:#999; text-align:center;">Không có dữ liệu</p>';
+        return;
+    }
+
+    let html = '<table style="width:100%; border-collapse:collapse; font-size:12px;">';
+    html += '<tr style="background: #667eea; color: white; font-weight: bold; position: sticky; top: 0;">';
+
+    // Headers
+    const columns = Object.keys(data[0]);
+    columns.forEach(col => {
+        html += `<th style="padding: 10px; text-align: left; border: 1px solid #ddd;">${col}</th>`;
+    });
+    html += '</tr>';
+
+    // Data rows
+    data.forEach((row, idx) => {
+        const bgColor = idx % 2 === 0 ? '#f9f9f9' : 'white';
+        html += `<tr style="background: ${bgColor}; border: 1px solid #ddd;">`;
+        columns.forEach(col => {
+            const value = row[col] || '';
+            html += `<td style="padding: 8px; border: 1px solid #ddd;">${value}</td>`;
+        });
+        html += '</tr>';
+    });
+
+    html += '</table>';
+    container.innerHTML = html;
+}
+
+// Export random units data to Excel
+function exportRandomUnitsData() {
+    if (!window.randomUnitsData || window.randomUnitsData.length === 0) {
+        alert('Không có dữ liệu để xuất!');
+        return;
+    }
+
+    try {
+        const data = window.randomUnitsData;
+        const numUnits = parseInt(document.getElementById('numUnits').value);
+        const numRows = parseInt(document.getElementById('numRows').value);
+
+        // Create workbook
+        const wb = XLSX.utils.book_new();
+
+        // Add main data sheet
+        const ws = XLSX.utils.json_to_sheet(data);
+
+        // Set column widths
+        const colWidths = [
+            { wch: 8 },   // STT
+            { wch: 12 },  // Đơn vị
+            { wch: 20 }   // Timestamp
+        ];
+        ws['!cols'] = colWidths;
+
+        // Style header row
+        for (let i = 0; i < 3; i++) {
+            const cellAddress = XLSX.utils.encode_col(i) + '1';
+            if (ws[cellAddress]) {
+                ws[cellAddress].s = {
+                    fill: { fgColor: { rgb: 'FF667EEA' } },
+                    font: { bold: true, color: { rgb: 'FFFFFFFF' } },
+                    alignment: { horizontal: 'center', vertical: 'center' }
+                };
+            }
+        }
+
+        XLSX.utils.book_append_sheet(wb, ws, 'Data');
+
+        // Create summary sheet
+        const summaryData = [];
+        summaryData.push(['Random Units Summary']);
+        summaryData.push(['']);
+        summaryData.push(['Tổng số đơn vị', numUnits]);
+        summaryData.push(['Tổng số dòng', numRows]);
+        summaryData.push(['Dòng trung bình/đơn vị', Math.floor(numRows / numUnits)]);
+        summaryData.push(['Thời gian tạo', new Date().toLocaleString('vi-VN')]);
+        summaryData.push(['']);
+        summaryData.push(['Phân bố chi tiết:']);
+
+        for (let i = 0; i < numUnits; i++) {
+            const unitCode = `H${String(i + 1).padStart(2, '0')}`;
+            const rowCount = data.filter(row => row['Đơn vị'] === unitCode).length;
+            summaryData.push([unitCode, rowCount]);
+        }
+
+        const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+        wsSummary['!cols'] = [{ wch: 30 }, { wch: 15 }];
+        XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
+
+        // Export file
+        const filename = `Random_Units_${numUnits}_Units_${numRows}_Rows_${new Date().getTime()}.xlsx`;
+        XLSX.writeFile(wb, filename);
+
+        alert(`✓ Đã xuất file ${filename} thành công!`);
+
+    } catch (err) {
+        console.error(err);
+        alert('Lỗi khi xuất file: ' + err.message);
     }
 }
 

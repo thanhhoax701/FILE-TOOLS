@@ -20,6 +20,9 @@
                     <li>
                         <a href="#" id="navSplitDate" onclick="showSection('splitDate')">3. Tách file KTĐK</a>
                     </li>
+                    <li>
+                        <a href="#" id="navRandomUnits" onclick="showSection('randomUnits')">4. Random đơn vị</a>
+                    </li>
                 </ul>
             </nav>
             <main class="content">
@@ -264,6 +267,70 @@
                     <div class="comparison-section" id="ktdkTypeB_ResultsContainer" style="display:none;">
                         <div class="section-title">💾 Bước 3: Kết quả tách (b)</div>
                         <div id="kdkFilesListB" style="font-size: 14px; line-height: 1.8;"></div>
+                    </div>
+                </section>
+                <!-- Random Units section -->
+                <section id="randomUnitsSection" style="display:none;">
+                    <div class="header">
+                        <h1>🎲 Random Đơn Vị</h1>
+                        <div class="controls">
+                            <div class="control-group">
+                                <label for="numUnits">Số lượng đơn vị:</label>
+                                <input
+                                    type="number"
+                                    id="numUnits"
+                                    placeholder="Ví dụ: 19"
+                                    min="1"
+                                    value="19"
+                                >
+                            </div>
+                            <div class="control-group">
+                                <label for="numRows">Số dòng dữ liệu:</label>
+                                <input
+                                    type="number"
+                                    id="numRows"
+                                    placeholder="Ví dụ: 1000"
+                                    min="1"
+                                    value="1000"
+                                >
+                            </div>
+                            <div class="button-group">
+                                <button onclick="generateRandomUnits()">🎲 Tạo dữ liệu Random</button>
+                            </div>
+                        </div>
+                        <div id="statusRandomUnits" class="status"></div>
+                        <div class="note">
+                            ✓ Nhập số lượng đơn vị (ví dụ: 19)
+                            <br>
+                            ✓ Nhập số dòng dữ liệu (ví dụ: 1000)
+                            <br>
+                            ✓ Các đơn vị sẽ được phân phối đều trên các dòng
+                            <br>
+                            ✓ Kết quả sẽ hiển thị dưới đây và có thể xuất ra file
+                        </div>
+                    </div>
+                    <!-- Results section -->
+                    <div class="comparison-section" id="randomUnitsResults" style="display:none;">
+                        <div class="section-title">📊 Thống kê kết quả</div>
+                        <div id="randomUnitsStats" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px;">
+                            <div class="stat-box">
+                                <span class="stat-label">Tổng đơn vị:</span>
+                                <span class="stat-value" id="statTotalUnits">0</span>
+                            </div>
+                            <div class="stat-box">
+                                <span class="stat-label">Tổng dòng:</span>
+                                <span class="stat-value" id="statTotalRows">0</span>
+                            </div>
+                            <div class="stat-box">
+                                <span class="stat-label">Dòng/đơn vị:</span>
+                                <span class="stat-value" id="statRowsPerUnit">0</span>
+                            </div>
+                        </div>
+                        <div class="section-title">📋 Dữ liệu (20 dòng đầu)</div>
+                        <div class="table-container" id="randomUnitsPreviewTable"></div>
+                        <div style="margin-top: 20px;">
+                            <button class="export-btn" onclick="exportRandomUnitsData()">⬇️ Xuất tất cả dữ liệu ra Excel</button>
+                        </div>
                     </div>
                 </section>
             </main>

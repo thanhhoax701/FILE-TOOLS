@@ -138,6 +138,29 @@ button:active {
     font-weight: 700;
 }
 
+.stat-box {
+    padding: 15px;
+    background: #f0f4ff;
+    border-radius: 6px;
+    border-left: 4px solid #667eea;
+    text-align: center;
+}
+
+.stat-label {
+    display: block;
+    color: #555;
+    font-weight: 600;
+    margin-bottom: 8px;
+    font-size: 13px;
+}
+
+.stat-value {
+    display: block;
+    font-size: 24px;
+    color: #667eea;
+    font-weight: 700;
+}
+
 .comparison-section {
     background: white;
     padding: 20px;
