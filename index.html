@@ -23,6 +23,9 @@
                     <li>
                         <a href="#" id="navRandomUnits" onclick="showSection('randomUnits')">4. Random đơn vị</a>
                     </li>
+                    <li>
+                        <a href="#" id="navSplitBrand" onclick="showSection('splitBrand')">5. Tách file theo cột</a>
+                    </li>
                 </ul>
             </nav>
             <main class="content">
@@ -267,6 +270,51 @@
                     <div class="comparison-section" id="ktdkTypeB_ResultsContainer" style="display:none;">
                         <div class="section-title">💾 Bước 3: Kết quả tách (b)</div>
                         <div id="kdkFilesListB" style="font-size: 14px; line-height: 1.8;"></div>
+                    </div>
+                </section>
+                <!-- Split by BranchCode section -->
+                <section id="splitBrandSection" style="display:none;">
+                    <div class="header">
+                        <h1>🏷️ Tách file theo cột BranchCode</h1>
+                    </div>
+                    <div class="comparison-section">
+                        <div class="section-title">📁 Chọn file và cấu hình</div>
+                        <div class="controls">
+                            <div class="control-group">
+                                <label for="splitBrandFile">Chọn file:</label>
+                                <input type="file" id="splitBrandFile" accept=".xlsx,.xls,.csv">
+                            </div>
+                            <div class="control-group">
+                                <label for="brandCodeColumn">Tên cột:</label>
+                                <input
+                                    type="text"
+                                    id="brandCodeColumn"
+                                    value="BranchCode"
+                                    placeholder="BranchCode"
+                                >
+                            </div>
+                            <div class="button-group">
+                                <button id="splitBrandButton" onclick="splitFileByBrandCode()">📤 Tách file theo BranchCode</button>
+                            </div>
+                        </div>
+                        <div id="statusSplitBrand" class="status"></div>
+                        <div id="splitBrandNote" class="note">
+                            ✓ Mỗi giá trị BranchCode sẽ được xuất thành một sheet riêng.
+                            <br>
+                            ✓ Sheet name sẽ được làm sạch để phù hợp với giới hạn Excel.
+                            <br>
+                            ✓ Nếu BranchCode trống thì sẽ được gom vào sheet
+                            <strong>BLANK</strong>
+                            .
+                        </div>
+                    </div>
+                    <div class="comparison-section">
+                        <div id="splitBrandStatsTitle" class="section-title">📊 Thống kê BranchCode</div>
+                        <div id="brandCountsList" class="note" style="background:#f9f9f9; color:#333; border-left-color:#28a745;"></div>
+                    </div>
+                    <div class="comparison-section">
+                        <div class="section-title">📋 Xem trước dữ liệu</div>
+                        <div class="table-container" id="tableSplitBrand"></div>
                     </div>
                 </section>
                 <!-- Random Units section -->

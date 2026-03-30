@@ -5,9 +5,9 @@ async function readExcel(file, applyDefaults = true) {
         const reader = new FileReader();
         reader.onload = (e) => {
             const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: "array" });
+            const workbook = XLSX.read(data, { type: "array", cellDates: true });
             const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-            const json = XLSX.utils.sheet_to_json(firstSheet, { defval: "" });
+            const json = XLSX.utils.sheet_to_json(firstSheet, { defval: "", raw: true });
 
             // if the sheet contains a fullname column, always ensure there is a
             // CUSTOMER_NAME column with the same value. this fixes situations
@@ -51,16 +51,49 @@ function showSection(section) {
     document.getElementById('compareSection').style.display = section === 'compare' ? 'block' : 'none';
     document.getElementById('splitSection').style.display = section === 'split' ? 'block' : 'none';
     document.getElementById('splitDateSection').style.display = section === 'splitDate' ? 'block' : 'none';
+    document.getElementById('splitBrandSection').style.display = section === 'splitBrand' ? 'block' : 'none';
     document.getElementById('randomUnitsSection').style.display = section === 'randomUnits' ? 'block' : 'none';
     document.getElementById('navCompare').classList.toggle('active', section === 'compare');
     document.getElementById('navSplit').classList.toggle('active', section === 'split');
     document.getElementById('navSplitDate').classList.toggle('active', section === 'splitDate');
+    document.getElementById('navSplitBrand').classList.toggle('active', section === 'splitBrand');
     document.getElementById('navRandomUnits').classList.toggle('active', section === 'randomUnits');
+    if (section === 'splitBrand') {
+        updateSplitBrandLabels();
+    }
 }
 
 // Normalize value for comparison
 function normalize(value) {
     return String(value).trim().toUpperCase();
+}
+
+function updateSplitBrandLabels() {
+    const input = document.getElementById('brandCodeColumn');
+    const label = input && input.value.trim() ? input.value.trim() : 'BranchCode';
+    const button = document.getElementById('splitBrandButton');
+    const header = document.querySelector('#splitBrandSection .header h1');
+    const note = document.getElementById('splitBrandNote');
+    const statsTitle = document.getElementById('splitBrandStatsTitle');
+
+    if (button) {
+        button.textContent = `📤 Tách file theo cột ${label}`;
+    }
+    if (header) {
+        header.textContent = `🏷️ Tách file theo cột ${label}`;
+    }
+    if (note) {
+        note.innerHTML = `✓ Mỗi giá trị ${label} sẽ được xuất thành một sheet riêng.<br>✓ Sheet name sẽ được làm sạch để phù hợp với giới hạn Excel.<br>✓ Nếu ${label} trống thì sẽ được gom vào sheet <strong>BLANK</strong>.`;
+    }
+    if (statsTitle) {
+        statsTitle.textContent = `📊 Thống kê ${label}`;
+    }
+}
+
+const brandCodeInput = document.getElementById('brandCodeColumn');
+if (brandCodeInput) {
+    brandCodeInput.addEventListener('input', updateSplitBrandLabels);
+    updateSplitBrandLabels();
 }
 
 // Get unique values from a column
@@ -332,7 +365,7 @@ function exportDifference() {
             });
 
             if (diffData.length > 0) {
-                const ws = XLSX.utils.json_to_sheet(diffData);
+                const ws = XLSX.utils.json_to_sheet(diffData, { cellDates: true });
                 try {
                     const colWidths = computeColWidths(diffData, Object.keys(diffData[0] || {}));
                     if (colWidths && colWidths.length) ws['!cols'] = colWidths;
@@ -381,7 +414,7 @@ async function splitFileIntoSheets(file, rowsPerSheet = 1000) {
         let sheetCount = 0;
         for (let i = 0; i < data.length; i += rowsPerSheet) {
             const chunk = data.slice(i, i + rowsPerSheet);
-            const ws = XLSX.utils.json_to_sheet(chunk);
+            const ws = XLSX.utils.json_to_sheet(chunk, { cellDates: true });
             // auto-fit columns for this chunk
             try {
                 const colWidths = computeColWidths(chunk, Object.keys(chunk[0] || {}));
@@ -558,7 +591,7 @@ function exportByDate() {
                     }
                 });
 
-                const ws = XLSX.utils.json_to_sheet(filteredRows);
+                const ws = XLSX.utils.json_to_sheet(filteredRows, { cellDates: true });
                 // auto-fit columns for this date sheet
                 try {
                     const colWidths = computeColWidths(filteredRows, Object.keys(filteredRows[0] || {}));
@@ -583,6 +616,123 @@ function splitFile() {
     const file = document.getElementById('splitFile').files[0];
     const rows = parseInt(document.getElementById('rowsPerSheet').value, 10) || 1000;
     splitFileIntoSheets(file, rows);
+}
+
+function sanitizeSheetName(name) {
+    let sheetName = String(name || '').trim();
+    if (!sheetName) {
+        sheetName = 'BLANK';
+    }
+    sheetName = sheetName.replace(/[:\\\/\?\*\[\]]/g, ' ').trim();
+    if (sheetName.length === 0) {
+        sheetName = 'BLANK';
+    }
+    if (sheetName.length > 31) {
+        sheetName = sheetName.substring(0, 31).trim();
+        if (sheetName.length === 0) {
+            sheetName = 'BLANK';
+        }
+    }
+    return sheetName;
+}
+
+async function splitFileByBrandCode() {
+    const file = document.getElementById('splitBrandFile').files[0];
+    const columnName = (document.getElementById('brandCodeColumn').value || 'BranchCode').trim();
+
+    if (!file) {
+        alert('Vui lòng chọn file để tách theo BranchCode!');
+        return;
+    }
+    if (!columnName) {
+        alert('Vui lòng nhập tên cột BranchCode!');
+        return;
+    }
+
+    try {
+        document.getElementById('statusSplitBrand').innerText = 'Đang đọc và tách file...';
+        const data = await readExcel(file);
+        if (!data || data.length === 0) {
+            alert('File không có dữ liệu để tách.');
+            document.getElementById('statusSplitBrand').innerText = '';
+            return;
+        }
+
+        if (!(columnName in data[0])) {
+            alert(`Không tìm thấy cột "${columnName}" trong file!`);
+            document.getElementById('statusSplitBrand').innerText = '';
+            return;
+        }
+
+        const groups = {};
+        data.forEach(row => {
+            const rawValue = row[columnName];
+            const key = rawValue == null || String(rawValue).trim() === '' ? 'BLANK' : String(rawValue).trim();
+            if (!groups[key]) {
+                groups[key] = [];
+            }
+            groups[key].push(row);
+        });
+
+        const wb = XLSX.utils.book_new();
+        const usedSheetNames = {};
+        const sheetInfo = [];
+        Object.entries(groups).forEach(([branchCode, rows]) => {
+            const rowCount = rows.length;
+            let baseName = sanitizeSheetName(branchCode);
+            const countSuffix = `_${rowCount}`;
+            if (baseName.length + countSuffix.length > 31) {
+                baseName = baseName.substring(0, 31 - countSuffix.length).trim();
+                if (baseName.length === 0) {
+                    baseName = 'BLANK';
+                }
+            }
+            let sheetName = `${baseName}${countSuffix}`;
+            if (usedSheetNames[sheetName]) {
+                let suffix = 1;
+                let candidate = sheetName;
+                while (usedSheetNames[candidate]) {
+                    const extra = `_${suffix}`;
+                    let trimmedBase = baseName;
+                    if (trimmedBase.length + countSuffix.length + extra.length > 31) {
+                        trimmedBase = trimmedBase.substring(0, 31 - countSuffix.length - extra.length).trim();
+                    }
+                    candidate = `${trimmedBase}${countSuffix}${extra}`;
+                    suffix += 1;
+                }
+                sheetName = candidate;
+            }
+            usedSheetNames[sheetName] = true;
+            sheetInfo.push({ sheetName, branchCode, rowCount });
+
+            const ws = XLSX.utils.json_to_sheet(rows, { cellDates: true });
+            try {
+                const colWidths = computeColWidths(rows, Object.keys(rows[0] || {}));
+                if (colWidths && colWidths.length) {
+                    ws['!cols'] = colWidths;
+                }
+            } catch (e) {
+                // ignore width calc errors
+            }
+            XLSX.utils.book_append_sheet(wb, ws, sheetName);
+        });
+
+        const outputFileName = file.name.replace(/\.[^.]+$/, '') + `_by_${columnName}.xlsx`;
+        XLSX.writeFile(wb, outputFileName);
+
+        const countsHtml = sheetInfo
+            .sort((a, b) => b.rowCount - a.rowCount)
+            .map(info => `<div><strong>${info.sheetName}</strong>: ${info.rowCount} dòng</div>`)
+            .join('');
+        document.getElementById('brandCountsList').innerHTML = countsHtml;
+        const cols = getDisplayColumns(data);
+        displayTable('tableSplitBrand', data.slice(0, 100), cols);
+        document.getElementById('statusSplitBrand').innerText = `Hoàn thành: ${Object.keys(groups).length} sheet. Tệp đã tải về: ${outputFileName}`;
+    } catch (err) {
+        console.error(err);
+        alert('Có lỗi khi tách theo BranchCode: ' + err.message);
+        document.getElementById('statusSplitBrand').innerText = '';
+    }
 }
 
 // alias for backwards compatibility (not used by UI)
@@ -970,7 +1120,7 @@ function doExportSelectedDays(setIndex) {
             XLSX.utils.sheet_add_aoa(ws, headerRows, { origin: 'A1' });
             // Add data rows starting at row 3 (index 2) WITHOUT generating an extra header row
             if (dateMap[displayDate] && dateMap[displayDate].length) {
-                XLSX.utils.sheet_add_json(ws, dateMap[displayDate], { origin: 'A3', skipHeader: true });
+                XLSX.utils.sheet_add_json(ws, dateMap[displayDate], { origin: 'A3', skipHeader: true, cellDates: true });
                 // compute and set column widths based on data and header names
                 try {
                     const hdrs = headerRows && headerRows.length >= 2 ? headerRows[1] : Object.keys(dateMap[displayDate][0] || {});
@@ -1039,7 +1189,7 @@ function exportSplit(setIndex, consolidated) {
                 XLSX.utils.sheet_add_aoa(ws, headerRows, { origin: 'A1' });
                 // Add data rows starting at row 3 (index 2) WITHOUT generating an extra header row
                 if (dateMap[displayDate] && dateMap[displayDate].length) {
-                    XLSX.utils.sheet_add_json(ws, dateMap[displayDate], { origin: 'A3', skipHeader: true });
+                    XLSX.utils.sheet_add_json(ws, dateMap[displayDate], { origin: 'A3', skipHeader: true, cellDates: true });
                     // set column widths
                     try {
                         const hdrs = headerRows && headerRows.length >= 2 ? headerRows[1] : Object.keys(dateMap[displayDate][0] || {});
@@ -1379,7 +1529,7 @@ async function doSplitKTDKTypeB() {
             XLSX.utils.sheet_add_aoa(ws, headerRows, { origin: 'A1' });
             // Add data rows starting at row 3 (index 2) WITHOUT generating an extra header row
             if (data && data.length) {
-                XLSX.utils.sheet_add_json(ws, data, { origin: 'A3', skipHeader: true });
+                XLSX.utils.sheet_add_json(ws, data, { origin: 'A3', skipHeader: true, cellDates: true });
             }
             const _len3 = (data ? data.length : 0);
             ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: (_len3 + headerRows.length - 1), c: 20 } });
@@ -1548,7 +1698,7 @@ function exportRandomUnitsData() {
         const wb = XLSX.utils.book_new();
 
         // Add main data sheet
-        const ws = XLSX.utils.json_to_sheet(data);
+        const ws = XLSX.utils.json_to_sheet(data, { cellDates: true });
 
         // Set column widths
         const colWidths = [
