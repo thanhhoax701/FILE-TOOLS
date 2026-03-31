@@ -14,14 +14,6 @@ async function readExcel(file, applyDefaults = true) {
             // where the source file only provides "FullName" but later
             // processing expects CUSTOMER_NAME.
             if (json.length > 0) {
-                const headers = Object.keys(json[0]);
-                const fullNameKey = headers.find(h => h.toLowerCase().replace(/[_\s]/g, '') === 'fullname');
-                if (fullNameKey) {
-                    json.forEach(row => {
-                        row['CUSTOMER_NAME'] = row[fullNameKey];
-                    });
-                }
-
                 if (applyDefaults) {
                     // ensure ServiceType column exists with a sensible default
                     // default comes from the ServiceType input field if available
@@ -52,11 +44,15 @@ function showSection(section) {
     document.getElementById('splitSection').style.display = section === 'split' ? 'block' : 'none';
     document.getElementById('splitDateSection').style.display = section === 'splitDate' ? 'block' : 'none';
     document.getElementById('splitBrandSection').style.display = section === 'splitBrand' ? 'block' : 'none';
+    document.getElementById('splitSheetSection').style.display = section === 'splitSheet' ? 'block' : 'none';
+    document.getElementById('generateCodesSection').style.display = section === 'generateCodes' ? 'block' : 'none';
     document.getElementById('randomUnitsSection').style.display = section === 'randomUnits' ? 'block' : 'none';
     document.getElementById('navCompare').classList.toggle('active', section === 'compare');
     document.getElementById('navSplit').classList.toggle('active', section === 'split');
     document.getElementById('navSplitDate').classList.toggle('active', section === 'splitDate');
     document.getElementById('navSplitBrand').classList.toggle('active', section === 'splitBrand');
+    document.getElementById('navSplitSheet').classList.toggle('active', section === 'splitSheet');
+    document.getElementById('navGenerateCodes').classList.toggle('active', section === 'generateCodes');
     document.getElementById('navRandomUnits').classList.toggle('active', section === 'randomUnits');
     if (section === 'splitBrand') {
         updateSplitBrandLabels();
@@ -439,6 +435,212 @@ async function splitFileIntoSheets(file, rowsPerSheet = 1000) {
         alert('Có lỗi khi tách file: ' + err.message);
         document.getElementById('statusSplit').innerText = '';
     }
+}
+
+async function readSplitSheetFile() {
+    const file = document.getElementById('splitSheetFile').files[0];
+    if (!file) {
+        alert('Vui lòng chọn file để đọc trước khi tách sheet!');
+        return;
+    }
+    try {
+        document.getElementById('statusSplitSheet').innerText = 'Đang đọc file...';
+        const data = await readExcel(file, false);
+        if (!data || data.length === 0) {
+            alert('File không có dữ liệu.');
+            document.getElementById('statusSplitSheet').innerText = '';
+            return;
+        }
+        window.splitSheetData = data;
+        window.splitSheetSourceName = file.name;
+        const cols = getDisplayColumns(data);
+        displayTable('tableSplitSheet', data.slice(0, 100), cols);
+        document.getElementById('statusSplitSheet').innerText = `Đã đọc ${data.length} dòng từ ${file.name}`;
+    } catch (err) {
+        console.error(err);
+        alert('Lỗi khi đọc file: ' + err.message);
+        document.getElementById('statusSplitSheet').innerText = '';
+    }
+}
+
+async function splitSheetFile() {
+    const file = document.getElementById('splitSheetFile').files[0];
+    const rowsPerSheet = parseInt(document.getElementById('splitSheetRows').value, 10) || 1000;
+    if (!file) {
+        alert('Vui lòng chọn file để tách sheet!');
+        return;
+    }
+    if (rowsPerSheet < 1) {
+        alert('Số dòng mỗi sheet phải lớn hơn 0!');
+        return;
+    }
+
+    try {
+        document.getElementById('statusSplitSheet').innerText = 'Đang đọc và tách file...';
+        let data = window.splitSheetData;
+        if (!data || window.splitSheetSourceName !== file.name) {
+            data = await readExcel(file, false);
+            window.splitSheetData = data;
+            window.splitSheetSourceName = file.name;
+        }
+
+        if (!data || data.length === 0) {
+            alert('File không có dữ liệu để tách.');
+            document.getElementById('statusSplitSheet').innerText = '';
+            return;
+        }
+
+        const cols = getDisplayColumns(data);
+        displayTable('tableSplitSheet', data.slice(0, 100), cols);
+
+        const wb = XLSX.utils.book_new();
+        let sheetCount = 0;
+        for (let i = 0; i < data.length; i += rowsPerSheet) {
+            const chunk = data.slice(i, i + rowsPerSheet);
+            const ws = XLSX.utils.json_to_sheet(chunk, { header: cols, cellDates: true });
+            try {
+                const colWidths = computeColWidths(chunk, cols);
+                if (colWidths && colWidths.length) ws['!cols'] = colWidths;
+            } catch (e) {
+                // ignore width calc errors
+            }
+            const start = i + 1;
+            const end = Math.min(i + rowsPerSheet, data.length);
+            const sheetName = sanitizeSheetName(`${start}-${end}`);
+            XLSX.utils.book_append_sheet(wb, ws, sheetName);
+            sheetCount++;
+        }
+
+        const outName = file.name.replace(/\.[^.]+$/, '') + `_split_sheet_${rowsPerSheet}rows.xlsx`;
+        XLSX.writeFile(wb, outName);
+        document.getElementById('statusSplitSheet').innerText = `Hoàn thành: ${sheetCount} sheet. Tệp đã tải về: ${outName}`;
+    } catch (err) {
+        console.error(err);
+        alert('Có lỗi khi tách sheet: ' + err.message);
+        document.getElementById('statusSplitSheet').innerText = '';
+    }
+}
+
+function padNumber(value, width = 6) {
+    return String(value).padStart(width, '0');
+}
+
+function parseStartCode(code, label) {
+    const text = String(code || '').trim();
+    const match = text.match(/^(.+?)(\d{6})$/);
+    if (!match || !match[1]) {
+        alert(`Vui lòng nhập mã ${label} hợp lệ, kết thúc bằng 6 chữ số (ví dụ: ${label}040001).`);
+        return null;
+    }
+    return {
+        prefix: match[1],
+        startNumber: parseInt(match[2], 10),
+        width: match[2].length
+    };
+}
+
+async function readGenerateCodesFile() {
+    const file = document.getElementById('generateCodesFile').files[0];
+    if (!file) {
+        alert('Vui lòng chọn file để đọc trước khi tạo mã.');
+        return;
+    }
+
+    try {
+        document.getElementById('statusGenerateCodes').innerText = 'Đang đọc file...';
+        const data = await readExcel(file, false);
+        if (!data || data.length === 0) {
+            alert('File không có dữ liệu.');
+            document.getElementById('statusGenerateCodes').innerText = '';
+            return;
+        }
+        window.generateCodesSourceData = data;
+        const cols = getDisplayColumns(data);
+        displayTable('tableGenerateCodes', data.slice(0, 100), cols);
+        document.getElementById('statusGenerateCodes').innerText = `Đã đọc ${data.length} dòng.`;
+        document.getElementById('generateCodesSummary').innerText = '';
+    } catch (err) {
+        console.error(err);
+        alert('Lỗi khi đọc file: ' + err.message);
+        document.getElementById('statusGenerateCodes').innerText = '';
+    }
+}
+
+async function generateCEOCVVEOCV() {
+    const file = document.getElementById('generateCodesFile').files[0];
+    let data = window.generateCodesSourceData;
+    if (!data) {
+        if (!file) {
+            alert('Vui lòng chọn file để tạo mã.');
+            return;
+        }
+        data = await readExcel(file, false);
+    }
+    if (!data || data.length === 0) {
+        alert('File không có dữ liệu để tạo mã.');
+        return;
+    }
+
+    const ceocvStart = document.getElementById('ceocvStartCode').value.trim();
+    const veocvStart = document.getElementById('veocvStartCode').value.trim();
+    const rowsPerSheet = parseInt(document.getElementById('generateCodesRows').value, 10) || 1000;
+
+    const ceocvInfo = parseStartCode(ceocvStart, 'CEOCV');
+    const veocvInfo = parseStartCode(veocvStart, 'VEOCV');
+    if (!ceocvInfo || !veocvInfo) {
+        return;
+    }
+
+    if (ceocvInfo.startNumber + data.length - 1 > 999999) {
+        alert('Dãy CEOCV sẽ vượt quá 6 chữ số. Vui lòng chọn mã bắt đầu nhỏ hơn.');
+        return;
+    }
+    if (veocvInfo.startNumber + data.length - 1 > 999999) {
+        alert('Dãy VEOCV sẽ vượt quá 6 chữ số. Vui lòng chọn mã bắt đầu nhỏ hơn.');
+        return;
+    }
+    if (rowsPerSheet < 1) {
+        alert('Số dòng mỗi sheet phải lớn hơn 0!');
+        return;
+    }
+
+    const generated = data.map((row, index) => {
+        const seqCEOCV = ceocvInfo.startNumber + index;
+        const seqVEOCV = veocvInfo.startNumber + index;
+        return {
+            ...row,
+            CEOCV: `${ceocvInfo.prefix}${padNumber(seqCEOCV, ceocvInfo.width)}`,
+            VEOCV: `${veocvInfo.prefix}${padNumber(seqVEOCV, veocvInfo.width)}`
+        };
+    });
+
+    const wb = XLSX.utils.book_new();
+    let sheetCount = 0;
+    for (let i = 0; i < generated.length; i += rowsPerSheet) {
+        const chunk = generated.slice(i, i + rowsPerSheet);
+        const ws = XLSX.utils.json_to_sheet(chunk, { cellDates: true });
+        try {
+            const colWidths = computeColWidths(chunk, Object.keys(chunk[0] || {}));
+            if (colWidths && colWidths.length) ws['!cols'] = colWidths;
+        } catch (e) {
+            // ignore width calc errors
+        }
+        const firstCode = chunk[0].CEOCV;
+        const lastCode = chunk[chunk.length - 1].CEOCV;
+        const sheetName = sanitizeSheetName(`${firstCode}-${lastCode}`);
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+        sheetCount++;
+    }
+
+    const outputFileName = file ? file.name.replace(/\.[^.]+$/, '') + '_CEOCV_VEOCV.xlsx' : 'ceocv_veocv.xlsx';
+    XLSX.writeFile(wb, outputFileName);
+
+    const firstCode = generated[0].CEOCV;
+    const lastCode = generated[generated.length - 1].CEOCV;
+    document.getElementById('statusGenerateCodes').innerText = `Hoàn thành: ${generated.length} dòng, ${sheetCount} sheet. Tệp đã tải về: ${outputFileName}`;
+    document.getElementById('generateCodesSummary').innerText = `Dải mã: ${firstCode} → ${lastCode}`;
+    const cols = getDisplayColumns(generated);
+    displayTable('tableGenerateCodes', generated.slice(0, 100), cols);
 }
 
 // read and preview file in split section without splitting

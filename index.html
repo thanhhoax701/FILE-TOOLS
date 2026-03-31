@@ -26,6 +26,12 @@
                     <li>
                         <a href="#" id="navSplitBrand" onclick="showSection('splitBrand')">5. Tách file theo cột</a>
                     </li>
+                    <li>
+                        <a href="#" id="navSplitSheet" onclick="showSection('splitSheet')">6. Tách sheet</a>
+                    </li>
+                    <li>
+                        <a href="#" id="navGenerateCodes" onclick="showSection('generateCodes')">7. Tạo CEOCV và VEOCV</a>
+                    </li>
                 </ul>
             </nav>
             <main class="content">
@@ -315,6 +321,100 @@
                     <div class="comparison-section">
                         <div class="section-title">📋 Xem trước dữ liệu</div>
                         <div class="table-container" id="tableSplitBrand"></div>
+                    </div>
+                </section>
+                <!-- Split sheet section -->
+                <section id="splitSheetSection" style="display:none;">
+                    <div class="header">
+                        <h1>📄 Tách sheet</h1>
+                    </div>
+                    <div class="comparison-section">
+                        <div class="section-title">📁 Chọn file và cấu hình</div>
+                        <div class="controls">
+                            <div class="control-group">
+                                <label for="splitSheetFile">Chọn file:</label>
+                                <input type="file" id="splitSheetFile" accept=".xlsx,.xls,.csv">
+                            </div>
+                            <div class="control-group">
+                                <label for="splitSheetRows">Số dòng mỗi sheet:</label>
+                                <input
+                                    type="number"
+                                    id="splitSheetRows"
+                                    value="1000"
+                                    min="1"
+                                >
+                            </div>
+                            <div class="button-group">
+                                <button onclick="readSplitSheetFile()">📖 Đọc file</button>
+                                <button onclick="splitSheetFile()">📤 Tách sheet</button>
+                            </div>
+                        </div>
+                        <div id="statusSplitSheet" class="status"></div>
+                        <div class="note">
+                            ✓ Giữ nguyên dòng tiêu đề cho mỗi sheet.
+                            <br>
+                            ✓ Mỗi sheet tối đa bằng số dòng bạn chọn.
+                            <br>
+                            ✓ Sheet cuối sẽ chứa số dòng còn lại nếu không vừa.
+                        </div>
+                    </div>
+                    <div class="comparison-section">
+                        <div class="section-title">📋 Xem trước dữ liệu</div>
+                        <div class="table-container" id="tableSplitSheet"></div>
+                    </div>
+                </section>
+                <!-- Generate CEOCV/VEOCV section -->
+                <section id="generateCodesSection" style="display:none;">
+                    <div class="header">
+                        <h1>🧾 Tạo CEOCV và VEOCV</h1>
+                    </div>
+                    <div class="comparison-section">
+                        <div class="section-title">📁 Chọn file và cấu hình</div>
+                        <div class="controls">
+                            <div class="control-group">
+                                <label for="generateCodesFile">Chọn file:</label>
+                                <input type="file" id="generateCodesFile" accept=".xlsx,.xls,.csv">
+                            </div>
+                            <div class="button-group">
+                                <button onclick="readGenerateCodesFile()">📖 Đọc file</button>
+                            </div>
+                        </div>
+                        <div id="statusGenerateCodes" class="status"></div>
+                    </div>
+                    <div class="comparison-section">
+                        <div class="section-title">⚙️ Thiết lập mã</div>
+                        <div class="controls">
+                            <div class="control-group">
+                                <label for="ceocvStartCode">Bắt đầu CEOCV:</label>
+                                <input type="text" id="ceocvStartCode" placeholder="Ví dụ: CEOCV040001">
+                            </div>
+                            <div class="control-group">
+                                <label for="veocvStartCode">Bắt đầu VEOCV:</label>
+                                <input type="text" id="veocvStartCode" placeholder="Ví dụ: VEOCV040001">
+                            </div>
+                            <div class="control-group">
+                                <label for="generateCodesRows">Số dòng mỗi sheet:</label>
+                                <input
+                                    type="number"
+                                    id="generateCodesRows"
+                                    value="1000"
+                                    min="1"
+                                >
+                            </div>
+                            <div class="button-group">
+                                <button onclick="generateCEOCVVEOCV()">📤 Tạo và xuất Excel</button>
+                            </div>
+                        </div>
+                        <div class="note">
+                            ✓ Mã cần kết thúc bằng 6 chữ số, ví dụ: CEOCV040001.
+                            <br>
+                            ✓ Mỗi sheet chứa đúng số dòng bạn chọn, sheet cuối cùng chứa phần dư.
+                        </div>
+                    </div>
+                    <div class="comparison-section">
+                        <div class="section-title">📋 Xem trước dữ liệu</div>
+                        <div class="table-container" id="tableGenerateCodes"></div>
+                        <div id="generateCodesSummary" class="note" style="margin-top:10px;"></div>
                     </div>
                 </section>
                 <!-- Random Units section -->
