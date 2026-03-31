@@ -32,6 +32,9 @@
                     <li>
                         <a href="#" id="navGenerateCodes" onclick="showSection('generateCodes')">7. Tạo CEOCV và VEOCV</a>
                     </li>
+                    <li>
+                        <a href="#" id="navDeleteColumn" onclick="showSection('deleteColumn')">8. Xóa cột</a>
+                    </li>
                 </ul>
             </nav>
             <main class="content">
@@ -415,6 +418,52 @@
                         <div class="section-title">📋 Xem trước dữ liệu</div>
                         <div class="table-container" id="tableGenerateCodes"></div>
                         <div id="generateCodesSummary" class="note" style="margin-top:10px;"></div>
+                    </div>
+                </section>
+                <!-- Delete Column section -->
+                <section id="deleteColumnSection" style="display:none;">
+                    <div class="header">
+                        <h1>🗑️ Xóa cột</h1>
+                    </div>
+                    <div class="comparison-section">
+                        <div class="section-title">📁 Chọn file và cột cần xóa</div>
+                        <div class="controls">
+                            <div class="control-group">
+                                <label for="deleteColumnFile">Chọn file:</label>
+                                <input type="file" id="deleteColumnFile" accept=".xlsx,.xls,.csv">
+                            </div>
+                            <div class="button-group">
+                                <button onclick="readDeleteColumnFile()">📖 Đọc file</button>
+                            </div>
+                        </div>
+                        <div id="statusDeleteColumn" class="status"></div>
+                    </div>
+                    <div class="comparison-section">
+                        <div class="section-title">✂️ Chọn cột cần xóa</div>
+                        <div class="controls">
+                            <div class="control-group" style="width:100%;">
+                                <label>Tên cột:</label>
+                                <div style="display:flex; align-items:center; margin-bottom:8px;">
+                                    <label style="cursor:pointer; font-size:0.95rem;">
+                                        <input type="checkbox" id="deleteColumnSelectAll" style="margin-right:6px;">
+                                        Chọn tất cả
+                                    </label>
+                                </div>
+                                <div id="deleteColumnList" style="max-height:220px; overflow:auto; padding:10px; border:1px solid #ddd; border-radius:5px; background:#fff;"></div>
+                            </div>
+                            <div class="button-group">
+                                <button onclick="deleteColumnAndExport()">📤 Xóa cột và xuất Excel</button>
+                            </div>
+                        </div>
+                        <div class="note">
+                            ✓ Đọc file trước để hiển thị tên cột.
+                            <br>
+                            ✓ Chọn một hoặc nhiều cột cần xóa rồi xuất file mới.
+                        </div>
+                    </div>
+                    <div class="comparison-section">
+                        <div class="section-title">📋 Xem trước dữ liệu sau khi xóa</div>
+                        <div class="table-container" id="tableDeleteColumn"></div>
                     </div>
                 </section>
                 <!-- Random Units section -->

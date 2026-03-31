@@ -46,6 +46,7 @@ function showSection(section) {
     document.getElementById('splitBrandSection').style.display = section === 'splitBrand' ? 'block' : 'none';
     document.getElementById('splitSheetSection').style.display = section === 'splitSheet' ? 'block' : 'none';
     document.getElementById('generateCodesSection').style.display = section === 'generateCodes' ? 'block' : 'none';
+    document.getElementById('deleteColumnSection').style.display = section === 'deleteColumn' ? 'block' : 'none';
     document.getElementById('randomUnitsSection').style.display = section === 'randomUnits' ? 'block' : 'none';
     document.getElementById('navCompare').classList.toggle('active', section === 'compare');
     document.getElementById('navSplit').classList.toggle('active', section === 'split');
@@ -53,6 +54,7 @@ function showSection(section) {
     document.getElementById('navSplitBrand').classList.toggle('active', section === 'splitBrand');
     document.getElementById('navSplitSheet').classList.toggle('active', section === 'splitSheet');
     document.getElementById('navGenerateCodes').classList.toggle('active', section === 'generateCodes');
+    document.getElementById('navDeleteColumn').classList.toggle('active', section === 'deleteColumn');
     document.getElementById('navRandomUnits').classList.toggle('active', section === 'randomUnits');
     if (section === 'splitBrand') {
         updateSplitBrandLabels();
@@ -563,6 +565,132 @@ async function readGenerateCodesFile() {
         console.error(err);
         alert('Lỗi khi đọc file: ' + err.message);
         document.getElementById('statusGenerateCodes').innerText = '';
+    }
+}
+
+async function readDeleteColumnFile() {
+    const file = document.getElementById('deleteColumnFile').files[0];
+    if (!file) {
+        alert('Vui lòng chọn file để đọc!');
+        return;
+    }
+
+    try {
+        document.getElementById('statusDeleteColumn').innerText = 'Đang đọc file...';
+        const data = await readExcel(file, false);
+        if (!data || data.length === 0) {
+            alert('File không có dữ liệu.');
+            document.getElementById('statusDeleteColumn').innerText = '';
+            return;
+        }
+
+        window.deleteColumnData = data;
+        window.deleteColumnSourceName = file.name;
+        const columns = Object.keys(data[0]);
+        const list = document.getElementById('deleteColumnList');
+        const selectAll = document.getElementById('deleteColumnSelectAll');
+        list.innerHTML = '';
+        if (selectAll) {
+            selectAll.checked = false;
+            selectAll.onchange = () => {
+                const checked = selectAll.checked;
+                document.querySelectorAll('.deleteColumnCheckbox').forEach(cb => cb.checked = checked);
+            };
+        }
+        columns.forEach(col => {
+            const label = document.createElement('label');
+            label.style.display = 'block';
+            label.style.cursor = 'pointer';
+            label.style.marginBottom = '4px';
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.value = col;
+            checkbox.className = 'deleteColumnCheckbox';
+            checkbox.style.marginRight = '6px';
+
+            label.appendChild(checkbox);
+            label.appendChild(document.createTextNode(col));
+            list.appendChild(label);
+        });
+
+        displayTable('tableDeleteColumn', data.slice(0, 100), columns);
+        document.getElementById('statusDeleteColumn').innerText = `Đã đọc ${data.length} dòng. Chọn cột để xóa.`;
+    } catch (err) {
+        console.error(err);
+        alert('Lỗi khi đọc file: ' + err.message);
+        document.getElementById('statusDeleteColumn').innerText = '';
+    }
+}
+
+async function deleteColumnAndExport() {
+    const file = document.getElementById('deleteColumnFile').files[0];
+    const selectedColumns = Array.from(document.querySelectorAll('.deleteColumnCheckbox:checked')).map(cb => cb.value);
+
+    if (!file) {
+        alert('Vui lòng chọn file để xóa cột!');
+        return;
+    }
+    if (selectedColumns.length === 0) {
+        alert('Vui lòng chọn ít nhất một cột cần xóa!');
+        return;
+    }
+
+    try {
+        document.getElementById('statusDeleteColumn').innerText = 'Đang xử lý...';
+        let data = window.deleteColumnData;
+        if (!data || window.deleteColumnSourceName !== file.name) {
+            data = await readExcel(file, false);
+        }
+
+        if (!data || data.length === 0) {
+            alert('File không có dữ liệu để xóa cột.');
+            document.getElementById('statusDeleteColumn').innerText = '';
+            return;
+        }
+        const missing = selectedColumns.filter(col => !(col in data[0]));
+        if (missing.length > 0) {
+            alert(`Không tìm thấy cột: ${missing.join(', ')} trong file!`);
+            document.getElementById('statusDeleteColumn').innerText = '';
+            return;
+        }
+
+        const headers = Object.keys(data[0]).filter(key => !selectedColumns.includes(key));
+        const cleaned = data.map(row => {
+            const newRow = {};
+            headers.forEach(key => {
+                newRow[key] = row[key];
+            });
+            return newRow;
+        });
+
+        if (cleaned.length === 0) {
+            alert('Dữ liệu sau khi xóa cột trống.');
+            document.getElementById('statusDeleteColumn').innerText = '';
+            return;
+        }
+
+        const ws = XLSX.utils.json_to_sheet(cleaned, { header: headers, cellDates: true });
+        try {
+            const colWidths = computeColWidths(cleaned, headers);
+            if (colWidths && colWidths.length) ws['!cols'] = colWidths;
+        } catch (e) {
+            // ignore width calc errors
+        }
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'DeletedColumn');
+        const removedName = selectedColumns.map(col => col.replace(/\s+/g, '_')).join('_') || 'deleted';
+        const outName = file.name.replace(/\.[^.]+$/, '') + `_delete_${removedName}.xlsx`;
+        XLSX.writeFile(wb, outName);
+
+        const previewCols = getDisplayColumns(cleaned);
+        displayTable('tableDeleteColumn', cleaned.slice(0, 100), previewCols);
+        document.getElementById('statusDeleteColumn').innerText = `Hoàn thành: đã xóa cột ${selectedColumns.join(', ')}. Tệp tải về: ${outName}`;
+    } catch (err) {
+        console.error(err);
+        alert('Có lỗi khi xóa cột: ' + err.message);
+        document.getElementById('statusDeleteColumn').innerText = '';
     }
 }
 
