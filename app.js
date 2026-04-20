@@ -220,6 +220,102 @@ function computeColWidths(rows, headers) {
     return widths;
 }
 
+function getSplitSheetServiceType() {
+    const input = document.getElementById('splitSheetServiceType');
+    return input && input.value.trim() ? input.value.trim() : 'CTKM3';
+}
+
+function getSplitSheetColumns(data) {
+    if (!data || data.length === 0) return [];
+    const rawCols = Object.keys(data[0]);
+    const cleanedCols = rawCols.slice();
+    const serviceTypeHeader = cleanedCols.find(c => String(c || '').toLowerCase() === 'servicetype') || 'ServiceType';
+    const branchCodeHeader = cleanedCols.find(c => String(c || '').toLowerCase() === 'branchcode') || 'BranchCode';
+    const ceocvHeader = cleanedCols.find(c => String(c || '').toLowerCase() === 'ceocv') || 'CEOCV';
+    const veocvHeader = cleanedCols.find(c => String(c || '').toLowerCase() === 'veocv') || 'VEOCV';
+
+    const exclude = new Set([serviceTypeHeader, branchCodeHeader, ceocvHeader, veocvHeader].filter(Boolean));
+    let cols = cleanedCols.filter(c => !exclude.has(c));
+
+    // Insert ServiceType at column C (index 2).
+    if (!cols.includes(serviceTypeHeader)) {
+        cols.splice(2, 0, serviceTypeHeader);
+    } else {
+        const idx = cols.indexOf(serviceTypeHeader);
+        if (idx !== 2) {
+            cols.splice(idx, 1);
+            cols.splice(2, 0, serviceTypeHeader);
+        }
+    }
+
+    // Insert BranchCode at column G (index 6).
+    if (!cols.includes(branchCodeHeader)) {
+        cols.splice(6, 0, branchCodeHeader);
+    } else {
+        const idx = cols.indexOf(branchCodeHeader);
+        if (idx !== 6) {
+            cols.splice(idx, 1);
+            cols.splice(6, 0, branchCodeHeader);
+        }
+    }
+
+    // Ensure there is a blank column at index 8.
+    if (cols.length <= 8 || cols[8] !== '') {
+        cols.splice(8, 0, '');
+    }
+
+    // Add CEOCV and VEOCV to J/K positions.
+    if (!cols.includes(ceocvHeader)) {
+        cols.splice(9, 0, ceocvHeader);
+    } else {
+        const idx = cols.indexOf(ceocvHeader);
+        cols.splice(idx, 1);
+        cols.splice(9, 0, ceocvHeader);
+    }
+    if (!cols.includes(veocvHeader)) {
+        cols.splice(10, 0, veocvHeader);
+    } else {
+        const idx = cols.indexOf(veocvHeader);
+        cols.splice(idx, 1);
+        cols.splice(10, 0, veocvHeader);
+    }
+
+    const isEmptyColumn = (columnName) => {
+        if (!columnName) return true;
+        return data.every(row => {
+            const value = row[columnName];
+            return value == null || String(value).trim() === '';
+        });
+    };
+
+    return cols.map(col => (col && isEmptyColumn(col) ? '' : col));
+}
+
+function ensureSplitSheetServiceType(data) {
+    const serviceTypeValue = getSplitSheetServiceType();
+    if (!data || data.length === 0) return data;
+
+    data.forEach(row => {
+        if (row['ServiceType'] == null || String(row['ServiceType']).trim() === '') {
+            row['ServiceType'] = serviceTypeValue;
+        }
+    });
+    return data;
+}
+
+function getRandomBranchCode() {
+    const value = Math.floor(Math.random() * 19) + 1;
+    return 'H' + String(value).padStart(2, '0');
+}
+
+function randomizeBranchCodes(data) {
+    if (!data || data.length === 0) return data;
+    data.forEach(row => {
+        row['BranchCode'] = getRandomBranchCode();
+    });
+    return data;
+}
+
 // Preview compare files when they are selected (show contents without diff)
 async function previewCompareFiles() {
     const file1 = document.getElementById("compareFile1").files[0];
@@ -447,17 +543,19 @@ async function readSplitSheetFile() {
     }
     try {
         document.getElementById('statusSplitSheet').innerText = 'Đang đọc file...';
-        const data = await readExcel(file, false);
+        let data = await readExcel(file, false);
         if (!data || data.length === 0) {
             alert('File không có dữ liệu.');
             document.getElementById('statusSplitSheet').innerText = '';
             return;
         }
+        data = ensureSplitSheetServiceType(data);
+        data = randomizeBranchCodes(data);
         window.splitSheetData = data;
         window.splitSheetSourceName = file.name;
-        const cols = getDisplayColumns(data);
-        displayTable('tableSplitSheet', data.slice(0, 100), cols);
-        document.getElementById('statusSplitSheet').innerText = `Đã đọc ${data.length} dòng từ ${file.name}`;
+        const cols = getSplitSheetColumns(window.splitSheetData);
+        displayTable('tableSplitSheet', window.splitSheetData.slice(0, 100), cols);
+        document.getElementById('statusSplitSheet').innerText = `Đã đọc ${window.splitSheetData.length} dòng từ ${file.name}`;
     } catch (err) {
         console.error(err);
         alert('Lỗi khi đọc file: ' + err.message);
@@ -492,7 +590,9 @@ async function splitSheetFile() {
             return;
         }
 
-        const cols = getDisplayColumns(data);
+        data = ensureSplitSheetServiceType(data);
+        data = randomizeBranchCodes(data);
+        const cols = getSplitSheetColumns(data);
         displayTable('tableSplitSheet', data.slice(0, 100), cols);
 
         const wb = XLSX.utils.book_new();
