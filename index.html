@@ -356,6 +356,16 @@
                                     value="CTKM3"
                                 >
                             </div>
+                            <div class="control-group" style="width:100%;">
+                                <label>Đơn vị áp dụng:</label>
+                                <div style="margin-top:8px;">
+                                    <label style="cursor:pointer; font-size:0.9rem; display:inline-block; margin-bottom:8px;">
+                                        <input type="checkbox" id="splitSheetUnitSelectAll" checked>
+                                        Chọn tất cả
+                                    </label>
+                                </div>
+                                <div id="splitSheetUnitList" style="display:grid; grid-template-columns: repeat(13, minmax(72px, 1fr)); gap:8px; padding:10px; border:1px solid #ddd; border-radius:5px; background:#fafafa;"></div>
+                            </div>
                             <div class="button-group">
                                 <button onclick="readSplitSheetFile()">📖 Đọc file</button>
                                 <button onclick="splitSheetFile()">📤 Tách sheet</button>
@@ -368,6 +378,8 @@
                             ✓ Mỗi sheet tối đa bằng số dòng bạn chọn.
                             <br>
                             ✓ Sheet cuối sẽ chứa số dòng còn lại nếu không vừa.
+                            <br>
+                            ✓ Chọn nhiều đơn vị H01–H26 để random theo dãy đã chọn.
                         </div>
                     </div>
                     <div class="comparison-section">

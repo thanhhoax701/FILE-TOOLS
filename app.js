@@ -303,15 +303,100 @@ function ensureSplitSheetServiceType(data) {
     return data;
 }
 
-function getRandomBranchCode() {
-    const value = Math.floor(Math.random() * 19) + 1;
-    return 'H' + String(value).padStart(2, '0');
+function getAllUnitCodes() {
+    const units = [];
+    for (let i = 1; i <= 26; i++) {
+        units.push(`H${String(i).padStart(2, '0')}`);
+    }
+    return units;
 }
 
-function randomizeBranchCodes(data) {
+function getDefaultSelectedUnitCodes() {
+    return [
+        'H01', 'H02', 'H03', 'H04', 'H20', 'H06', 'H07', 'H21', 'H09', 'H22',
+        'H23', 'H24', 'H13', 'H14', 'H15', 'H25', 'H26', 'H18', 'H19'
+    ];
+}
+
+function buildSplitSheetUnitList() {
+    const container = document.getElementById('splitSheetUnitList');
+    if (!container) return;
+
+    const allUnits = getAllUnitCodes();
+    const defaultSelected = new Set(getDefaultSelectedUnitCodes());
+    container.innerHTML = '';
+    container.style.display = 'grid';
+    container.style.gridTemplateColumns = 'repeat(13, minmax(70px, 1fr))';
+    container.style.gap = '8px';
+
+    allUnits.forEach(unitCode => {
+        const label = document.createElement('label');
+        label.style.display = 'flex';
+        label.style.alignItems = 'center';
+        label.style.justifyContent = 'center';
+        label.style.gap = '8px';
+        label.style.padding = '8px 10px';
+        label.style.background = '#fff';
+        label.style.border = '1px solid #dfe3e8';
+        label.style.borderRadius = '6px';
+        label.style.fontSize = '15px';
+        label.style.minHeight = '38px';
+        label.style.margin = '0';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.value = unitCode;
+        checkbox.checked = defaultSelected.has(unitCode);
+        checkbox.className = 'splitSheetUnitCheckbox';
+
+        const text = document.createTextNode(unitCode);
+        label.appendChild(checkbox);
+        label.appendChild(text);
+        container.appendChild(label);
+    });
+
+    const selectAll = document.getElementById('splitSheetUnitSelectAll');
+    if (selectAll) {
+        const total = document.querySelectorAll('.splitSheetUnitCheckbox').length;
+        const checked = document.querySelectorAll('.splitSheetUnitCheckbox:checked').length;
+        selectAll.checked = total > 0 && total === checked;
+        selectAll.onchange = () => {
+            document.querySelectorAll('.splitSheetUnitCheckbox').forEach(cb => {
+                cb.checked = selectAll.checked;
+            });
+        };
+    }
+}
+
+function getSelectedUnitCodes() {
+    const container = document.getElementById('splitSheetUnitList');
+    if (!container) return getAllUnitCodes();
+
+    const selected = Array.from(container.querySelectorAll('.splitSheetUnitCheckbox:checked')).map(cb => cb.value);
+    return selected.length ? selected : getAllUnitCodes();
+}
+
+function getRandomBranchCodeFromSelection(selectedUnits = null) {
+    const pool = selectedUnits && selectedUnits.length ? selectedUnits : getSelectedUnitCodes();
+    if (!pool || pool.length === 0) {
+        return 'H01';
+    }
+    return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function randomizeBranchCodes(data, selectedUnits = null) {
     if (!data || data.length === 0) return data;
-    data.forEach(row => {
-        row['BranchCode'] = getRandomBranchCode();
+
+    const pool = selectedUnits && selectedUnits.length ? selectedUnits.slice() : getSelectedUnitCodes();
+    if (!pool || pool.length === 0) return data;
+
+    for (let i = pool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+
+    data.forEach((row, index) => {
+        row['BranchCode'] = pool[index % pool.length];
     });
     return data;
 }
@@ -550,7 +635,7 @@ async function readSplitSheetFile() {
             return;
         }
         data = ensureSplitSheetServiceType(data);
-        data = randomizeBranchCodes(data);
+        data = randomizeBranchCodes(data, getSelectedUnitCodes());
         window.splitSheetData = data;
         window.splitSheetSourceName = file.name;
         const cols = getSplitSheetColumns(window.splitSheetData);
@@ -591,7 +676,7 @@ async function splitSheetFile() {
         }
 
         data = ensureSplitSheetServiceType(data);
-        data = randomizeBranchCodes(data);
+        data = randomizeBranchCodes(data, getSelectedUnitCodes());
         const cols = getSplitSheetColumns(data);
         displayTable('tableSplitSheet', data.slice(0, 100), cols);
 
@@ -2187,5 +2272,6 @@ function exportRandomUnitsData() {
 
 // initialize with compare section visible
 window.addEventListener('DOMContentLoaded', () => {
+    buildSplitSheetUnitList();
     showSection('compare');
 });
