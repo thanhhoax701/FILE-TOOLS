@@ -9,6 +9,7 @@ body {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     min-height: 100vh;
     padding: 20px;
+    overflow-x: hidden;
 }
 
 .container {
@@ -54,15 +55,26 @@ label {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 15px 20px;
     align-items: end;
+    width: 100%;
 }
 
 #splitSheetSection .control-group {
     display: flex;
     flex-direction: column;
+    width: 100%;
 }
 
 #splitSheetSection .control-group:nth-child(4) {
     grid-column: 1 / -1;
+    width: 100%;
+}
+
+#splitSheetSection .control-group label,
+#splitSheetSection .control-group > label {
+    margin-bottom: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #555;
 }
 
 #splitSheetSection .button-group {
@@ -71,21 +83,35 @@ label {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
     margin-top: 5px;
+    width: 100%;
 }
 
 #splitSheetSection .button-group button {
     width: 100%;
+    flex: none;
+}
+
+#splitSheetSection input[type="file"],
+#splitSheetSection input[type="text"],
+#splitSheetSection input[type="number"] {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
 }
 
 #splitSheetUnitList {
     display: grid;
-    grid-template-columns: repeat(13, minmax(70px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
     gap: 8px;
     width: 100%;
+    max-width: 100%;
     padding: 10px;
     border: 1px solid #ddd;
     border-radius: 5px;
     background: #fafafa;
+    box-sizing: border-box;
 }
 
 #splitSheetUnitList label {
@@ -102,6 +128,9 @@ label {
     font-size: 15px;
     font-weight: 500;
     color: #333;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 #splitSheetUnitList .splitSheetUnitCheckbox {
@@ -109,6 +138,7 @@ label {
     height: 16px;
     accent-color: #1e88e5;
     cursor: pointer;
+    margin: 0;
 }
 
 input[type="file"],

@@ -326,8 +326,10 @@ function buildSplitSheetUnitList() {
     const defaultSelected = new Set(getDefaultSelectedUnitCodes());
     container.innerHTML = '';
     container.style.display = 'grid';
-    container.style.gridTemplateColumns = 'repeat(13, minmax(70px, 1fr))';
+    container.style.gridTemplateColumns = 'repeat(auto-fit, minmax(70px, 1fr))';
     container.style.gap = '8px';
+    container.style.width = '100%';
+    container.style.maxWidth = '100%';
 
     allUnits.forEach(unitCode => {
         const label = document.createElement('label');
