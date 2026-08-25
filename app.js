@@ -228,13 +228,39 @@ function getSplitSheetServiceType() {
 function getSplitSheetColumns(data) {
     if (!data || data.length === 0) return [];
     const rawCols = Object.keys(data[0]);
-    const cleanedCols = rawCols.slice();
-    const serviceTypeHeader = cleanedCols.find(c => String(c || '').toLowerCase() === 'servicetype') || 'ServiceType';
-    const branchCodeHeader = cleanedCols.find(c => String(c || '').toLowerCase() === 'branchcode') || 'BranchCode';
-    const ceocvHeader = cleanedCols.find(c => String(c || '').toLowerCase() === 'ceocv') || 'CEOCV';
-    const veocvHeader = cleanedCols.find(c => String(c || '').toLowerCase() === 'veocv') || 'VEOCV';
+    const cleanedCols = rawCols.filter(column => {
+        const normalized = String(column || '').toLowerCase().replace(/[\s_-]/g, '');
+        return normalized !== '' && !normalized.startsWith('empty');
+    });
+    const findHeader = aliases => cleanedCols.find(column => {
+        const normalized = String(column || '').toLowerCase().replace(/[\s_-]/g, '');
+        return aliases.includes(normalized);
+    });
+    const serviceTypeHeader = findHeader(['servicetype']) || 'ServiceType';
+    const branchCodeHeader = findHeader(['branchcode']) || 'BranchCode';
+    const ceocvHeader = findHeader(['ceo', 'ceocv', 'customercode', 'fname1']) || 'CEO';
+    const veocvHeader = findHeader(['veo', 'veocv', 'voucher', 'fname2']) || 'VEO';
+    const productsHeader = findHeader(['products', 'product', 'fname3']) || 'PRODUCTS';
+    const promotionHeader = findHeader(['promotion', 'fname4']) || 'PROMOTION';
+    const giftsHeader = findHeader(['gifts', 'gift', 'fname5']) || 'GIFTS';
+    const placenameHeader = findHeader(['placename', 'fname6']) || 'PLACENAME';
+    const noteHeader = findHeader(['note', 'fname7']) || 'NOTE';
+    const timeHeader = findHeader(['time', 'fname8']) || 'TIME';
+    const chassisNoHeader = findHeader(['chassisno', 'chassis', 'fname9']) || 'CHASSISNO';
 
-    const exclude = new Set([serviceTypeHeader, branchCodeHeader, ceocvHeader, veocvHeader].filter(Boolean));
+    const exclude = new Set([
+        serviceTypeHeader,
+        branchCodeHeader,
+        ceocvHeader,
+        veocvHeader,
+        productsHeader,
+        promotionHeader,
+        giftsHeader,
+        placenameHeader,
+        noteHeader,
+        timeHeader,
+        chassisNoHeader
+    ].filter(Boolean));
     let cols = cleanedCols.filter(c => !exclude.has(c));
 
     // Insert ServiceType at column C (index 2).
@@ -259,26 +285,24 @@ function getSplitSheetColumns(data) {
         }
     }
 
-    // Ensure there is a blank column at index 8.
-    if (cols.length <= 8 || cols[8] !== '') {
-        cols.splice(8, 0, '');
-    }
-
-    // Add CEOCV and VEOCV to J/K positions.
-    if (!cols.includes(ceocvHeader)) {
-        cols.splice(9, 0, ceocvHeader);
-    } else {
-        const idx = cols.indexOf(ceocvHeader);
-        cols.splice(idx, 1);
-        cols.splice(9, 0, ceocvHeader);
-    }
-    if (!cols.includes(veocvHeader)) {
-        cols.splice(10, 0, veocvHeader);
-    } else {
-        const idx = cols.indexOf(veocvHeader);
-        cols.splice(idx, 1);
-        cols.splice(10, 0, veocvHeader);
-    }
+    const fixedColumns = [
+        [ceocvHeader, 9],
+        [veocvHeader, 10],
+        [productsHeader, 11],
+        [promotionHeader, 12],
+        [giftsHeader, 13],
+        [placenameHeader, 14],
+        [noteHeader, 15],
+        [timeHeader, 16],
+        [chassisNoHeader, 17]
+    ];
+    fixedColumns.forEach(([header, index]) => {
+        const currentIndex = cols.indexOf(header);
+        if (currentIndex !== -1) {
+            cols.splice(currentIndex, 1);
+        }
+        cols.splice(index, 0, header);
+    });
 
     const isEmptyColumn = (columnName) => {
         if (!columnName) return true;
@@ -301,6 +325,144 @@ function ensureSplitSheetServiceType(data) {
         }
     });
     return data;
+}
+
+function applySplitSheetInputValues(data) {
+    if (!data || data.length === 0) return data;
+
+    const fields = [
+        { aliases: ['products', 'product', 'fname3'], header: 'PRODUCTS' },
+        { aliases: ['promotion', 'fname4'], header: 'PROMOTION' },
+        { aliases: ['gifts', 'gift', 'fname5'], header: 'GIFTS' },
+        { aliases: ['placename', 'fname6'], header: 'PLACENAME' },
+        { aliases: ['note', 'fname7'], header: 'NOTE' },
+        { aliases: ['time', 'fname8'], header: 'TIME' },
+        { aliases: ['chassisno', 'chassis', 'fname9'], header: 'CHASSISNO' }
+    ];
+    const sourceHeaders = Object.keys(data[0]);
+    const templateValues = window.splitSheetTemplateValues || {};
+
+    fields.forEach(field => {
+        const value = templateValues[field.header];
+        if (value == null || String(value).trim() === '') return;
+
+        const targetHeader = sourceHeaders.find(column => {
+            const normalized = String(column || '').toLowerCase().replace(/[\s_-]/g, '');
+            return field.aliases.includes(normalized);
+        }) || field.header;
+        data.forEach(row => {
+            row[targetHeader] = value;
+        });
+    });
+    return data;
+}
+
+async function readSplitSheetTemplate() {
+    const file = document.getElementById('splitSheetTemplateFile').files[0];
+    if (!file) {
+        alert('Vui lòng chọn file mẫu trước khi đọc!');
+        return;
+    }
+
+    try {
+        document.getElementById('statusSplitSheet').innerText = 'Đang đọc file mẫu...';
+        const buffer = await file.arrayBuffer();
+        const workbook = XLSX.read(new Uint8Array(buffer), { type: 'array', cellDates: true });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: true });
+        const templateColumnCount = rows.reduce((max, row) => Math.max(max, row.length), 0);
+        const templateColumns = Array.from({ length: templateColumnCount }, (_, index) => XLSX.utils.encode_col(index));
+        const templatePreviewRows = rows.slice(0, 100).map(row => {
+            const previewRow = {};
+            templateColumns.forEach((column, index) => {
+                previewRow[column] = row[index] == null ? '' : row[index];
+            });
+            return previewRow;
+        });
+        displayTable('tableSplitSheetTemplate', templatePreviewRows, templateColumns);
+        document.getElementById('splitSheetTemplatePreview').style.display = 'block';
+        const knownHeaders = new Set([
+            'servicetype', 'products', 'product', 'promotion', 'gifts', 'gift',
+            'placename', 'note', 'time', 'chassisno', 'chassis', 'customercode',
+            'voucher', 'ceo', 'veo', 'ceocv', 'veocv', 'fname1', 'fname2',
+            'fname3', 'fname4', 'fname5', 'fname6', 'fname7', 'fname8', 'fname9'
+        ]);
+        const normalizeHeader = value => String(value || '').toLowerCase().replace(/[\s_-]/g, '');
+        let headerRowIndex = 0;
+        let highestMatchCount = 0;
+        rows.slice(0, 10).forEach((row, index) => {
+            const matchCount = row.filter(value => knownHeaders.has(normalizeHeader(value))).length;
+            if (matchCount >= highestMatchCount) {
+                highestMatchCount = matchCount;
+                headerRowIndex = index;
+            }
+        });
+
+        const headers = rows[headerRowIndex] || [];
+        const headerIndexes = fields => fields.map(field => headers.findIndex(header => {
+            return field.aliases.includes(normalizeHeader(header));
+        })).filter(index => index !== -1);
+        const templateFields = [
+            { aliases: ['products', 'product', 'fname3'] },
+            { aliases: ['promotion', 'fname4'] },
+            { aliases: ['gifts', 'gift', 'fname5'] },
+            { aliases: ['placename', 'fname6'] },
+            { aliases: ['note', 'fname7'] },
+            { aliases: ['time', 'fname8'] },
+            { aliases: ['chassisno', 'chassis', 'fname9'] }
+        ];
+        const dataColumnIndexes = headerIndexes(templateFields);
+        const firstDataRow = rows.slice(headerRowIndex + 1).find(row => {
+            return dataColumnIndexes.some(columnIndex => {
+                const value = row[columnIndex];
+                return value != null && String(value).trim() !== '' &&
+                    normalizeHeader(value) !== normalizeHeader(headers[columnIndex]);
+            });
+        });
+        if (!firstDataRow) {
+            throw new Error('File mẫu không có dòng dữ liệu để lấy giá trị.');
+        }
+
+        const fields = [
+            { header: 'PRODUCTS', aliases: ['products', 'product', 'fname3'] },
+            { header: 'PROMOTION', aliases: ['promotion', 'fname4'] },
+            { header: 'GIFTS', aliases: ['gifts', 'gift', 'fname5'] },
+            { header: 'PLACENAME', aliases: ['placename', 'fname6'] },
+            { header: 'NOTE', aliases: ['note', 'fname7'] },
+            { header: 'TIME', aliases: ['time', 'fname8'] },
+            { header: 'CHASSISNO', aliases: ['chassisno', 'chassis', 'fname9'] }
+        ];
+        window.splitSheetTemplateValues = {};
+        let filledCount = 0;
+        fields.forEach(field => {
+            const columnIndex = headers.findIndex(header => field.aliases.includes(normalizeHeader(header)));
+            if (columnIndex === -1) return;
+            const value = firstDataRow[columnIndex];
+            if (value == null || String(value).trim() === '') return;
+            window.splitSheetTemplateValues[field.header] = value;
+            filledCount++;
+        });
+
+        document.getElementById('statusSplitSheet').innerText = `Đã đọc file mẫu: lấy được ${filledCount} trường dùng chung.`;
+    } catch (err) {
+        console.error(err);
+        alert('Lỗi khi đọc file mẫu: ' + err.message);
+        document.getElementById('statusSplitSheet').innerText = '';
+    }
+}
+
+function clearSplitSheetFormatting(worksheet) {
+    Object.keys(worksheet).forEach(address => {
+        if (address.startsWith('!')) return;
+        delete worksheet[address].s;
+        delete worksheet[address].z;
+    });
+    delete worksheet['!cols'];
+    delete worksheet['!rows'];
+    delete worksheet['!merges'];
+    delete worksheet['!autofilter'];
+    delete worksheet['!protect'];
+    return worksheet;
 }
 
 function getAllUnitCodes() {
@@ -637,6 +799,7 @@ async function readSplitSheetFile() {
             return;
         }
         data = ensureSplitSheetServiceType(data);
+        data = applySplitSheetInputValues(data);
         data = randomizeBranchCodes(data, getSelectedUnitCodes());
         window.splitSheetData = data;
         window.splitSheetSourceName = file.name;
@@ -661,6 +824,10 @@ async function splitSheetFile() {
         alert('Số dòng mỗi sheet phải lớn hơn 0!');
         return;
     }
+    if (!window.splitSheetTemplateValues || Object.keys(window.splitSheetTemplateValues).length === 0) {
+        alert('Vui lòng chọn và đọc file mẫu trước khi tách sheet!');
+        return;
+    }
 
     try {
         document.getElementById('statusSplitSheet').innerText = 'Đang đọc và tách file...';
@@ -678,6 +845,7 @@ async function splitSheetFile() {
         }
 
         data = ensureSplitSheetServiceType(data);
+        data = applySplitSheetInputValues(data);
         data = randomizeBranchCodes(data, getSelectedUnitCodes());
         const cols = getSplitSheetColumns(data);
         displayTable('tableSplitSheet', data.slice(0, 100), cols);
@@ -687,12 +855,7 @@ async function splitSheetFile() {
         for (let i = 0; i < data.length; i += rowsPerSheet) {
             const chunk = data.slice(i, i + rowsPerSheet);
             const ws = XLSX.utils.json_to_sheet(chunk, { header: cols, cellDates: true });
-            try {
-                const colWidths = computeColWidths(chunk, cols);
-                if (colWidths && colWidths.length) ws['!cols'] = colWidths;
-            } catch (e) {
-                // ignore width calc errors
-            }
+            clearSplitSheetFormatting(ws);
             const start = i + 1;
             const end = Math.min(i + rowsPerSheet, data.length);
             const sheetName = sanitizeSheetName(`${start}-${end}`);

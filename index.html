@@ -339,6 +339,10 @@
                                 <input type="file" id="splitSheetFile" accept=".xlsx,.xls,.csv">
                             </div>
                             <div class="control-group">
+                                <label for="splitSheetTemplateFile">Chọn file mẫu:</label>
+                                <input type="file" id="splitSheetTemplateFile" accept=".xlsx,.xls,.csv">
+                            </div>
+                            <div class="control-group">
                                 <label for="splitSheetRows">Số dòng mỗi sheet:</label>
                                 <input
                                     type="number"
@@ -356,7 +360,7 @@
                                     value="CTKM3"
                                 >
                             </div>
-                            <div class="control-group" style="width:100%;">
+                            <div class="control-group split-sheet-units-group" style="width:100%;">
                                 <label>Đơn vị áp dụng:</label>
                                 <div style="margin-top:8px;">
                                     <label style="cursor:pointer; font-size:0.9rem; display:inline-block; margin-bottom:8px;">
@@ -367,11 +371,16 @@
                                 <div id="splitSheetUnitList" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(72px, 1fr)); gap:8px; padding:10px; border:1px solid #ddd; border-radius:5px; background:#fafafa; width:100%; max-width:100%; box-sizing:border-box;"></div>
                             </div>
                             <div class="button-group">
+                                <button onclick="readSplitSheetTemplate()">📋 Đọc file mẫu</button>
                                 <button onclick="readSplitSheetFile()">📖 Đọc file</button>
                                 <button onclick="splitSheetFile()">📤 Tách sheet</button>
                             </div>
                         </div>
                         <div id="statusSplitSheet" class="status"></div>
+                        <div id="splitSheetTemplatePreview" class="template-preview" style="display:none;">
+                            <div class="section-title">📋 Dữ liệu file mẫu</div>
+                            <div class="table-container" id="tableSplitSheetTemplate"></div>
+                        </div>
                         <div class="note">
                             ✓ Giữ nguyên dòng tiêu đề cho mỗi sheet.
                             <br>
@@ -380,6 +389,8 @@
                             ✓ Sheet cuối sẽ chứa số dòng còn lại nếu không vừa.
                             <br>
                             ✓ Chọn nhiều đơn vị H01–H26 để random theo dãy đã chọn.
+                            <br>
+                            ✓ Đọc file mẫu để lấy dữ liệu dùng chung cho tất cả các dòng.
                         </div>
                     </div>
                     <div class="comparison-section">

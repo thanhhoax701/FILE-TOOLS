@@ -64,7 +64,7 @@ label {
     width: 100%;
 }
 
-#splitSheetSection .control-group:nth-child(4) {
+#splitSheetSection .split-sheet-units-group {
     grid-column: 1 / -1;
     width: 100%;
 }
@@ -139,6 +139,10 @@ label {
     accent-color: #1e88e5;
     cursor: pointer;
     margin: 0;
+}
+
+.template-preview {
+    margin-top: 20px;
 }
 
 input[type="file"],
