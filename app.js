@@ -229,8 +229,7 @@ function getSplitSheetColumns(data) {
     if (!data || data.length === 0) return [];
     const rawCols = Object.keys(data[0]);
     const cleanedCols = rawCols.filter(column => {
-        const normalized = String(column || '').toLowerCase().replace(/[\s_-]/g, '');
-        return normalized !== '' && !normalized.startsWith('empty');
+        return !isSplitSheetEmptyHeader(column);
     });
     const findHeader = aliases => cleanedCols.find(column => {
         const normalized = String(column || '').toLowerCase().replace(/[\s_-]/g, '');
@@ -315,6 +314,23 @@ function getSplitSheetColumns(data) {
     return cols.map(col => (col && isEmptyColumn(col) ? '' : col));
 }
 
+function isSplitSheetEmptyHeader(column) {
+    const normalized = String(column || '').toLowerCase().replace(/[\s_-]/g, '');
+    return normalized === '' || /^empty(?:\d+)?$/.test(normalized);
+}
+
+function removeSplitSheetEmptyColumns(data) {
+    if (!data || data.length === 0) return data;
+    data.forEach(row => {
+        Object.keys(row).forEach(column => {
+            if (isSplitSheetEmptyHeader(column)) {
+                delete row[column];
+            }
+        });
+    });
+    return data;
+}
+
 function ensureSplitSheetServiceType(data) {
     const serviceTypeValue = getSplitSheetServiceType();
     if (!data || data.length === 0) return data;
@@ -379,7 +395,10 @@ async function readSplitSheetTemplate() {
             });
             return previewRow;
         });
-        displayTable('tableSplitSheetTemplate', templatePreviewRows, templateColumns);
+        const visibleTemplateColumns = templateColumns.filter(column => {
+            return templatePreviewRows.some(row => String(row[column] || '').trim() !== '');
+        });
+        displayTable('tableSplitSheetTemplate', templatePreviewRows, visibleTemplateColumns);
         document.getElementById('splitSheetTemplatePreview').style.display = 'block';
         const knownHeaders = new Set([
             'servicetype', 'products', 'product', 'promotion', 'gifts', 'gift',
@@ -798,6 +817,7 @@ async function readSplitSheetFile() {
             document.getElementById('statusSplitSheet').innerText = '';
             return;
         }
+        data = removeSplitSheetEmptyColumns(data);
         data = ensureSplitSheetServiceType(data);
         data = applySplitSheetInputValues(data);
         data = randomizeBranchCodes(data, getSelectedUnitCodes());
@@ -844,6 +864,7 @@ async function splitSheetFile() {
             return;
         }
 
+        data = removeSplitSheetEmptyColumns(data);
         data = ensureSplitSheetServiceType(data);
         data = applySplitSheetInputValues(data);
         data = randomizeBranchCodes(data, getSelectedUnitCodes());
