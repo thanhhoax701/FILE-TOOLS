@@ -48,6 +48,7 @@ function showSection(section) {
     document.getElementById('generateCodesSection').style.display = section === 'generateCodes' ? 'block' : 'none';
     document.getElementById('deleteColumnSection').style.display = section === 'deleteColumn' ? 'block' : 'none';
     document.getElementById('randomUnitsSection').style.display = section === 'randomUnits' ? 'block' : 'none';
+    document.getElementById('createTemplateSection').style.display = section === 'createTemplate' ? 'block' : 'none';
     document.getElementById('navCompare').classList.toggle('active', section === 'compare');
     document.getElementById('navSplit').classList.toggle('active', section === 'split');
     document.getElementById('navSplitDate').classList.toggle('active', section === 'splitDate');
@@ -56,6 +57,7 @@ function showSection(section) {
     document.getElementById('navGenerateCodes').classList.toggle('active', section === 'generateCodes');
     document.getElementById('navDeleteColumn').classList.toggle('active', section === 'deleteColumn');
     document.getElementById('navRandomUnits').classList.toggle('active', section === 'randomUnits');
+    document.getElementById('navCreateTemplate').classList.toggle('active', section === 'createTemplate');
     if (section === 'splitBrand') {
         updateSplitBrandLabels();
     }
@@ -482,6 +484,129 @@ function clearSplitSheetFormatting(worksheet) {
     delete worksheet['!autofilter'];
     delete worksheet['!protect'];
     return worksheet;
+}
+
+const templateFileFields = [
+    ['FullName', 'templateFullName'],
+    ['PhoneNo', 'templatePhoneNo'],
+    ['ServiceType', 'templateServiceType'],
+    ['ServiceDate', 'templateServiceDate'],
+    ['ServiceName', 'templateServiceName'],
+    ['ServiceCode', 'templateServiceCode'],
+    ['BranchCode', 'templateBranchCode'],
+    ['Dist Province', 'templateDistProvince'],
+    ['CUSTOMER_CODE', 'templateCustomerCode'],
+    ['VOUCHER', 'templateVoucher'],
+    ['PRODUCTS', 'templateProducts'],
+    ['PROMOTION', 'templatePromotion'],
+    ['GIFTS', 'templateGifts'],
+    ['PLACENAME', 'templatePlacename'],
+    ['NOTE', 'templateNote'],
+    ['TIME', 'templateTime'],
+    ['CHASSISNO', 'templateChassisNo'],
+    ['FName_10', 'templateFName10']
+];
+
+const requiredTemplateFields = new Set([
+    'FullName', 'PhoneNo', 'ServiceType', 'BranchCode', 'CUSTOMER_CODE',
+    'VOUCHER', 'PRODUCTS', 'PROMOTION', 'GIFTS', 'PLACENAME', 'NOTE',
+    'TIME', 'CHASSISNO'
+]);
+
+function getTemplateFileData() {
+    const missingFields = [];
+    const row = {};
+    templateFileFields.forEach(([header, inputId]) => {
+        const input = document.getElementById(inputId);
+        const value = input ? input.value.trim() : '';
+        if (requiredTemplateFields.has(header) && !value) missingFields.push(header);
+        row[header] = value;
+    });
+    if (missingFields.length > 0) {
+        alert(`Vui lòng nhập đầy đủ các trường: ${missingFields.join(', ')}`);
+        return null;
+    }
+    return row;
+}
+
+async function readCreateTemplateSource() {
+    const file = document.getElementById('createTemplateSourceFile').files[0];
+    if (!file) {
+        alert('Vui lòng chọn file chuẩn trước khi đọc!');
+        return;
+    }
+
+    try {
+        const buffer = await file.arrayBuffer();
+        const workbook = XLSX.read(new Uint8Array(buffer), { type: 'array', cellDates: true });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: true });
+        const normalizeHeader = value => String(value || '').toLowerCase().replace(/[\s_-]/g, '');
+        const expectedHeaders = new Set(templateFileFields.map(([header]) => normalizeHeader(header)));
+        let headerRowIndex = -1;
+        let highestMatchCount = 0;
+        rows.slice(0, 10).forEach((row, index) => {
+            const matchCount = row.filter(value => expectedHeaders.has(normalizeHeader(value))).length;
+            if (matchCount >= highestMatchCount) {
+                highestMatchCount = matchCount;
+                headerRowIndex = index;
+            }
+        });
+        if (headerRowIndex === -1 || highestMatchCount === 0) {
+            throw new Error('Không tìm thấy dòng tiêu đề phù hợp trong file chuẩn.');
+        }
+
+        const headers = rows[headerRowIndex];
+        const dataRow = rows.slice(headerRowIndex + 1).find(row => row.some(value => String(value).trim() !== ''));
+        if (!dataRow) {
+            throw new Error('File chuẩn không có dòng dữ liệu bên dưới tiêu đề.');
+        }
+
+        templateFileFields.forEach(([header, inputId]) => {
+            const columnIndex = headers.findIndex(value => normalizeHeader(value) === normalizeHeader(header));
+            const input = document.getElementById(inputId);
+            if (input) input.value = columnIndex === -1 || dataRow[columnIndex] == null ? '' : dataRow[columnIndex];
+        });
+
+        const row = {};
+        templateFileFields.forEach(([header, inputId]) => {
+            row[header] = document.getElementById(inputId).value;
+        });
+        window.templateFileData = [row];
+        displayTable('tableCreateTemplate', window.templateFileData, templateFileFields.map(([header]) => header));
+        document.getElementById('statusCreateTemplateSource').innerText = `Đã đọc ${highestMatchCount} trường từ file chuẩn.`;
+        document.getElementById('statusCreateTemplate').innerText = 'Đã hiển thị dữ liệu trường tương ứng.';
+    } catch (err) {
+        console.error(err);
+        alert('Lỗi khi đọc file chuẩn: ' + err.message);
+        document.getElementById('statusCreateTemplateSource').innerText = '';
+    }
+}
+
+function previewTemplateFile() {
+    const row = getTemplateFileData();
+    if (!row) return;
+
+    window.templateFileData = [row];
+    displayTable('tableCreateTemplate', window.templateFileData, templateFileFields.map(([header]) => header));
+    document.getElementById('statusCreateTemplate').innerText = 'Đã tạo dữ liệu xem trước file mẫu.';
+}
+
+function exportTemplateFile() {
+    const row = getTemplateFileData();
+    if (!row) return;
+
+    const headers = templateFileFields.map(([header]) => header);
+    const data = [row];
+    const worksheet = XLSX.utils.json_to_sheet(data, { header: headers, cellDates: true });
+    clearSplitSheetFormatting(worksheet);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Template');
+    XLSX.writeFile(workbook, 'file_mau_gui.xlsx');
+
+    window.templateFileData = data;
+    displayTable('tableCreateTemplate', data, headers);
+    document.getElementById('statusCreateTemplate').innerText = 'Đã xuất file mẫu: file_mau_gui.xlsx';
 }
 
 function getAllUnitCodes() {

@@ -35,6 +35,9 @@
                     <li>
                         <a href="#" id="navDeleteColumn" onclick="showSection('deleteColumn')">8. Xóa cột</a>
                     </li>
+                    <li>
+                        <a href="#" id="navCreateTemplate" onclick="showSection('createTemplate')">9. Tạo file mẫu</a>
+                    </li>
                 </ul>
             </nav>
             <main class="content">
@@ -450,6 +453,57 @@
                         <div class="section-title">📋 Xem trước dữ liệu</div>
                         <div class="table-container" id="tableGenerateCodes"></div>
                         <div id="generateCodesSummary" class="note" style="margin-top:10px;"></div>
+                    </div>
+                </section>
+                <!-- Create template section -->
+                <section id="createTemplateSection" style="display:none;">
+                    <div class="header">
+                        <h1>🧾 Tạo file mẫu</h1>
+                    </div>
+                    <div class="comparison-section">
+                        <div class="section-title">📁 Import file chuẩn</div>
+                        <div class="controls">
+                            <div class="control-group">
+                                <label for="createTemplateSourceFile">Chọn file chuẩn:</label>
+                                <input type="file" id="createTemplateSourceFile" accept=".xlsx,.xls,.csv">
+                            </div>
+                            <div class="button-group">
+                                <button onclick="readCreateTemplateSource()">📖 Đọc dữ liệu file chuẩn</button>
+                            </div>
+                        </div>
+                        <div id="statusCreateTemplateSource" class="status"></div>
+                    </div>
+                    <div class="comparison-section">
+                        <div class="section-title">📝 Dữ liệu trường tương ứng</div>
+                        <div class="controls template-fields">
+                            <div class="control-group"><label for="templateFullName">FullName <span class="required-marker">*</span>:</label><input type="text" id="templateFullName" readonly></div>
+                            <div class="control-group"><label for="templatePhoneNo">PhoneNo <span class="required-marker">*</span>:</label><input type="text" id="templatePhoneNo" readonly></div>
+                            <div class="control-group"><label for="templateServiceType">ServiceType <span class="required-marker">*</span>:</label><input type="text" id="templateServiceType" readonly></div>
+                            <div class="control-group"><label for="templateServiceDate">ServiceDate:</label><input type="text" id="templateServiceDate" readonly></div>
+                            <div class="control-group"><label for="templateServiceName">ServiceName:</label><input type="text" id="templateServiceName" readonly></div>
+                            <div class="control-group"><label for="templateServiceCode">ServiceCode:</label><input type="text" id="templateServiceCode" readonly></div>
+                            <div class="control-group"><label for="templateBranchCode">BranchCode <span class="required-marker">*</span>:</label><input type="text" id="templateBranchCode" readonly></div>
+                            <div class="control-group"><label for="templateDistProvince">Dist Province:</label><input type="text" id="templateDistProvince" readonly></div>
+                            <div class="control-group"><label for="templateCustomerCode">CUSTOMER_CODE <span class="required-marker">*</span>:</label><input type="text" id="templateCustomerCode" readonly></div>
+                            <div class="control-group"><label for="templateVoucher">VOUCHER <span class="required-marker">*</span>:</label><input type="text" id="templateVoucher" readonly></div>
+                            <div class="control-group"><label for="templateProducts">PRODUCTS <span class="required-marker">*</span>:</label><input type="text" id="templateProducts" readonly></div>
+                            <div class="control-group"><label for="templatePromotion">PROMOTION <span class="required-marker">*</span>:</label><input type="text" id="templatePromotion" readonly></div>
+                            <div class="control-group"><label for="templateGifts">GIFTS <span class="required-marker">*</span>:</label><input type="text" id="templateGifts" readonly></div>
+                            <div class="control-group"><label for="templatePlacename">PLACENAME <span class="required-marker">*</span>:</label><input type="text" id="templatePlacename" readonly></div>
+                            <div class="control-group"><label for="templateNote">NOTE <span class="required-marker">*</span>:</label><input type="text" id="templateNote" readonly></div>
+                            <div class="control-group"><label for="templateTime">TIME <span class="required-marker">*</span>:</label><input type="text" id="templateTime" readonly></div>
+                            <div class="control-group"><label for="templateChassisNo">CHASSISNO <span class="required-marker">*</span>:</label><input type="text" id="templateChassisNo" readonly></div>
+                            <div class="control-group"><label for="templateFName10">FName_10:</label><input type="text" id="templateFName10" readonly></div>
+                            <div class="button-group">
+                                <button onclick="previewTemplateFile()">👁️ Hiển thị file</button>
+                                <button onclick="exportTemplateFile()">📤 Xuất file mẫu</button>
+                            </div>
+                        </div>
+                        <div id="statusCreateTemplate" class="status"></div>
+                    </div>
+                    <div class="comparison-section">
+                        <div class="section-title">📋 Xem trước file mẫu</div>
+                        <div class="table-container" id="tableCreateTemplate"></div>
                     </div>
                 </section>
                 <!-- Delete Column section -->

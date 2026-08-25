@@ -50,6 +50,11 @@ label {
     font-size: 14px;
 }
 
+.required-marker {
+    color: #dc2626;
+    font-weight: 700;
+}
+
 #splitSheetSection .controls {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -89,6 +94,10 @@ label {
 #splitSheetSection .button-group button {
     width: 100%;
     flex: none;
+}
+
+#createTemplateSection .template-fields {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 #splitSheetSection input[type="file"],
