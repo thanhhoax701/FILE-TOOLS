@@ -227,82 +227,53 @@ function getSplitSheetServiceType() {
     return input && input.value.trim() ? input.value.trim() : 'CTKM3';
 }
 
+function normalizeSplitSheetHeader(value) {
+    return String(value ?? '').trim().toLowerCase().replace(/[\s_-]+/g, '');
+}
+
 function getSplitSheetColumns(data) {
     if (!data || data.length === 0) return [];
-    const rawCols = Object.keys(data[0]);
-    const cleanedCols = rawCols.filter(column => {
-        return !isSplitSheetEmptyHeader(column);
-    });
-    const findHeader = aliases => cleanedCols.find(column => {
-        const normalized = String(column || '').toLowerCase().replace(/[\s_-]/g, '');
-        return aliases.includes(normalized);
-    });
-    const serviceTypeHeader = findHeader(['servicetype']) || 'ServiceType';
-    const branchCodeHeader = findHeader(['branchcode']) || 'BranchCode';
-    const ceocvHeader = findHeader(['ceo', 'ceocv', 'customercode', 'fname1']) || 'CEO';
-    const veocvHeader = findHeader(['veo', 'veocv', 'voucher', 'fname2']) || 'VEO';
-    const productsHeader = findHeader(['products', 'product', 'fname3']) || 'PRODUCTS';
-    const promotionHeader = findHeader(['promotion', 'fname4']) || 'PROMOTION';
-    const giftsHeader = findHeader(['gifts', 'gift', 'fname5']) || 'GIFTS';
-    const placenameHeader = findHeader(['placename', 'fname6']) || 'PLACENAME';
-    const noteHeader = findHeader(['note', 'fname7']) || 'NOTE';
-    const timeHeader = findHeader(['time', 'fname8']) || 'TIME';
-    const chassisNoHeader = findHeader(['chassisno', 'chassis', 'fname9']) || 'CHASSISNO';
 
-    const exclude = new Set([
-        serviceTypeHeader,
-        branchCodeHeader,
-        ceocvHeader,
-        veocvHeader,
-        productsHeader,
-        promotionHeader,
-        giftsHeader,
-        placenameHeader,
-        noteHeader,
-        timeHeader,
-        chassisNoHeader
-    ].filter(Boolean));
-    let cols = cleanedCols.filter(c => !exclude.has(c));
+    const rawCols = Object.keys(data[0]).filter(column => !isSplitSheetEmptyHeader(column));
+    const findHeader = aliases => {
+        const normalizedAliases = aliases.map(normalizeSplitSheetHeader);
+        return rawCols.find(column => normalizedAliases.includes(normalizeSplitSheetHeader(column))) || null;
+    };
 
-    // Insert ServiceType at column C (index 2).
-    if (!cols.includes(serviceTypeHeader)) {
-        cols.splice(2, 0, serviceTypeHeader);
-    } else {
-        const idx = cols.indexOf(serviceTypeHeader);
-        if (idx !== 2) {
-            cols.splice(idx, 1);
-            cols.splice(2, 0, serviceTypeHeader);
-        }
-    }
-
-    // Insert BranchCode at column G (index 6).
-    if (!cols.includes(branchCodeHeader)) {
-        cols.splice(6, 0, branchCodeHeader);
-    } else {
-        const idx = cols.indexOf(branchCodeHeader);
-        if (idx !== 6) {
-            cols.splice(idx, 1);
-            cols.splice(6, 0, branchCodeHeader);
-        }
-    }
-
-    const fixedColumns = [
-        [ceocvHeader, 9],
-        [veocvHeader, 10],
-        [productsHeader, 11],
-        [promotionHeader, 12],
-        [giftsHeader, 13],
-        [placenameHeader, 14],
-        [noteHeader, 15],
-        [timeHeader, 16],
-        [chassisNoHeader, 17]
+    const targetPositions = [
+        { index: 0, aliases: ['fullname', 'hoten', 'customername', 'name'] },
+        { index: 1, aliases: ['phoneno', 'phone', 'sdt', 'mobilenumber', 'tel'] },
+        { index: 2, aliases: ['servicetype'] },
+        { index: 6, aliases: ['branchcode'] },
+        { index: 9, aliases: ['customercode', 'customer_code', 'customerid', 'ceo', 'ceocv', 'fname1'] },
+        { index: 10, aliases: ['voucher', 'voucherno', 'vouchercode', 'veo', 'veocv', 'fname2'] },
+        { index: 11, aliases: ['products', 'product', 'fname3'] },
+        { index: 12, aliases: ['promotion', 'fname4'] },
+        { index: 13, aliases: ['gifts', 'gift', 'fname5'] },
+        { index: 14, aliases: ['placename', 'fname6'] },
+        { index: 15, aliases: ['note', 'fname7'] },
+        { index: 16, aliases: ['time', 'fname8'] },
+        { index: 17, aliases: ['chassisno', 'chassis', 'fname9'] }
     ];
-    fixedColumns.forEach(([header, index]) => {
-        const currentIndex = cols.indexOf(header);
-        if (currentIndex !== -1) {
-            cols.splice(currentIndex, 1);
+
+    const ordered = Array(18).fill('');
+    const used = new Set();
+
+    targetPositions.forEach(({ index, aliases }) => {
+        const matchedHeader = findHeader(aliases);
+        if (!matchedHeader || used.has(matchedHeader)) return;
+        ordered[index] = matchedHeader;
+        used.add(matchedHeader);
+    });
+
+    rawCols.forEach(column => {
+        if (!used.has(column)) {
+            const firstEmptyIndex = ordered.findIndex(value => value === '');
+            if (firstEmptyIndex !== -1) {
+                ordered[firstEmptyIndex] = column;
+                used.add(column);
+            }
         }
-        cols.splice(index, 0, header);
     });
 
     const isEmptyColumn = (columnName) => {
@@ -313,7 +284,7 @@ function getSplitSheetColumns(data) {
         });
     };
 
-    return cols.map(col => (col && isEmptyColumn(col) ? '' : col));
+    return ordered.map(column => (column && isEmptyColumn(column) ? '' : column));
 }
 
 function isSplitSheetEmptyHeader(column) {
