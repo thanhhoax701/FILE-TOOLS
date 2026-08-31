@@ -1202,10 +1202,40 @@ async function generateCEOCVVEOCV() {
     const generated = data.map((row, index) => {
         const seqCEOCV = ceocvInfo.startNumber + index;
         const seqVEOCV = veocvInfo.startNumber + index;
+        const ceocvValue = `${ceocvInfo.prefix}${padNumber(seqCEOCV, ceocvInfo.width)}`;
+        const veocvValue = `${veocvInfo.prefix}${padNumber(seqVEOCV, veocvInfo.width)}`;
+
+        const getField = (...keys) => {
+            for (const key of keys) {
+                if (row[key] !== undefined && row[key] !== null && String(row[key]).trim() !== '') {
+                    return row[key];
+                }
+            }
+            return '';
+        };
+
+        const fullName = getField('FullName', 'FULLNAME', 'CustomerName', 'CUSTOMER_NAME', 'Họ tên', 'HoTen', 'HOTEN');
+        const phoneNo = getField('PhoneNo', 'PHONE', 'MOBILE', 'SĐT', 'SDT', 'SoDienThoai');
+
         return {
-            ...row,
-            CEOCV: `${ceocvInfo.prefix}${padNumber(seqCEOCV, ceocvInfo.width)}`,
-            VEOCV: `${veocvInfo.prefix}${padNumber(seqVEOCV, veocvInfo.width)}`
+            FullName: fullName,
+            PhoneNo: phoneNo,
+            C: '',
+            D: '',
+            E: '',
+            F: '',
+            G: getField('BranchCode', 'branchcode', 'BranchCode', 'BRANCHCODE', 'H01', 'HO1'),
+            H: '',
+            I: '',
+            J: ceocvValue,
+            K: veocvValue,
+            L: getField('PRODUCTS', 'products'),
+            M: getField('PROMOTION', 'promotion'),
+            N: getField('GIFTS', 'gifts'),
+            O: getField('PLACENAME', 'placename'),
+            P: getField('NOTE', 'note'),
+            Q: getField('TIME', 'time'),
+            R: getField('CHASSISNO', 'chassisno', 'ChassisNo')
         };
     });
 
@@ -1213,15 +1243,29 @@ async function generateCEOCVVEOCV() {
     let sheetCount = 0;
     for (let i = 0; i < generated.length; i += rowsPerSheet) {
         const chunk = generated.slice(i, i + rowsPerSheet);
-        const ws = XLSX.utils.json_to_sheet(chunk, { cellDates: true });
+        const ws = XLSX.utils.json_to_sheet(chunk, {
+            header: ['FullName', 'PhoneNo', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R'],
+            skipHeader: false,
+            cellDates: true
+        });
+
+        ws.A1 = { t: 's', v: 'FullName' };
+        ws.B1 = { t: 's', v: 'PhoneNo' };
+        ws.J1 = { t: 's', v: 'CUSTOMER_CODE' };
+        ws.K1 = { t: 's', v: 'VOUCHER' };
+        ws['A1'] = { t: 's', v: 'FullName' };
+        ws['B1'] = { t: 's', v: 'PhoneNo' };
+        ws['J1'] = { t: 's', v: 'CUSTOMER_CODE' };
+        ws['K1'] = { t: 's', v: 'VOUCHER' };
+
         try {
-            const colWidths = computeColWidths(chunk, Object.keys(chunk[0] || {}));
+            const colWidths = computeColWidths(chunk, ['FullName', 'PhoneNo', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R']);
             if (colWidths && colWidths.length) ws['!cols'] = colWidths;
         } catch (e) {
             // ignore width calc errors
         }
-        const firstCode = chunk[0].CEOCV;
-        const lastCode = chunk[chunk.length - 1].CEOCV;
+        const firstCode = chunk[0].J;
+        const lastCode = chunk[chunk.length - 1].J;
         const sheetName = sanitizeSheetName(`${firstCode}-${lastCode}`);
         XLSX.utils.book_append_sheet(wb, ws, sheetName);
         sheetCount++;
